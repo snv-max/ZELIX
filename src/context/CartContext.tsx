@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Product, CartItem } from '@/types/database.types';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -25,6 +25,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<Product[]>([]);
+  const wishlistMountedRef = useRef(true);
 
   // 1. Load Cart from LocalStorage on mount
   useEffect(() => {
@@ -38,6 +39,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // 2. Load Wishlist on mount or when user changes
   useEffect(() => {
+    wishlistMountedRef.current = true;
+
     const loadWishlist = async () => {
       if (!user) {
         setWishlist([]);
@@ -51,22 +54,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             .select('product_id, products(*)')
             .eq('user_id', user.id);
 
+          if (!wishlistMountedRef.current) return;
           if (error) throw error;
           const items = data
             ?.map((item: any) => item.products as Product)
             .filter(Boolean) || [];
           setWishlist(items);
-        } catch (err) {
+        } catch (err: any) {
+          if (!wishlistMountedRef.current) return;
+          const msg = err?.message || '';
+          if (msg.includes('aborted') || err?.name === 'AbortError') return;
           console.error('Error loading Supabase wishlist:', err);
-          // Fallback to mockDb
           setWishlist(mockDb.getWishlist(user.id));
         }
       } else {
-        setWishlist(mockDb.getWishlist(user.id));
+        if (wishlistMountedRef.current) {
+          setWishlist(mockDb.getWishlist(user.id));
+        }
       }
     };
 
     loadWishlist();
+
+    return () => {
+      wishlistMountedRef.current = false;
+    };
   }, [user]);
 
   // Save Cart to LocalStorage

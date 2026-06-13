@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/types/database.types';
 import { User } from '@supabase/supabase-js';
@@ -28,7 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track whether the component is still mounted to avoid state updates after unmount
+  const mountedRef = useRef(true);
+
   useEffect(() => {
+    mountedRef.current = true;
+
     if (!supabase) {
       console.warn('Supabase client is not initialized.');
       setIsLoading(false);
@@ -38,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let subscription: any = null;
 
     const fetchProfile = async (uid: string, userEmail: string) => {
+      if (!mountedRef.current) return;
       try {
         const { data, error } = await supabase!
           .from('profiles')
@@ -45,11 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('id', uid)
           .single();
 
+        if (!mountedRef.current) return;
         if (error) throw error;
         setProfile(data as Profile);
-      } catch (err) {
+      } catch (err: any) {
+        if (!mountedRef.current) return;
+        // Suppress "signal aborted" noise — these are harmless cleanup aborts
+        const msg = err?.message || '';
+        if (msg.includes('aborted') || err?.name === 'AbortError') return;
         console.error('Error loading Supabase profile:', err);
-        // Fail secure fallback (customer role, no admin bypass)
+        // Fail-secure fallback (customer role, no admin bypass)
         setProfile({
           id: uid,
           email: userEmail,
@@ -61,9 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // getSession is the authoritative source of truth on initial load.
+    // We let onAuthStateChange handle all subsequent updates.
     const getSession = async () => {
       try {
         const { data: { session } } = await supabase!.auth.getSession();
+        if (!mountedRef.current) return;
         if (session?.user) {
           setUser(session.user);
           await fetchProfile(session.user.id, session.user.email || '');
@@ -71,23 +85,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setProfile(null);
         }
-      } catch (err) {
-        console.error('Failed to get Supabase session:', err);
+      } catch (err: any) {
+        if (!mountedRef.current) return;
+        const msg = err?.message || '';
+        if (!msg.includes('aborted') && err?.name !== 'AbortError') {
+          console.error('Failed to get Supabase session:', err);
+        }
       } finally {
-        setIsLoading(false);
+        if (mountedRef.current) setIsLoading(false);
       }
     };
 
-    try {
-      getSession();
-    } catch (err) {
-      console.error('Error starting getSession:', err);
-      setIsLoading(false);
-    }
+    getSession();
 
     try {
       const { data } = supabase!.auth.onAuthStateChange(async (event, session) => {
+        // INITIAL_SESSION is already handled by getSession() above — skip to avoid double fetch
+        if (event === 'INITIAL_SESSION') return;
+
         try {
+          if (!mountedRef.current) return;
           if (session?.user) {
             setUser(session.user);
             await fetchProfile(session.user.id, session.user.email || '');
@@ -95,24 +112,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null);
             setProfile(null);
           }
-        } catch (innerErr) {
-          console.error('Error inside onAuthStateChange handler:', innerErr);
+        } catch (innerErr: any) {
+          if (!mountedRef.current) return;
+          const msg = innerErr?.message || '';
+          if (!msg.includes('aborted') && innerErr?.name !== 'AbortError') {
+            console.error('Error inside onAuthStateChange handler:', innerErr);
+          }
         } finally {
-          setIsLoading(false);
+          if (mountedRef.current) setIsLoading(false);
         }
       });
       subscription = data?.subscription;
     } catch (err) {
       console.error('Failed to register onAuthStateChange listener:', err);
-      setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
 
     return () => {
+      mountedRef.current = false;
       if (subscription) {
         try {
           subscription.unsubscribe();
-        } catch (err) {
-          console.error('Failed to unsubscribe from auth state changes:', err);
+        } catch {
+          // Silently ignore unsubscribe errors during cleanup
         }
       }
     };
