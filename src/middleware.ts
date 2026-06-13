@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
 
   // 4. Admin Role Security Check
   if (isAdminRoute) {
-    if (!user) {
+    if (!user || !supabase) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       url.searchParams.set('redirect', pathname);
