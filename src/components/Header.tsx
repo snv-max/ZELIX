@@ -76,6 +76,7 @@ export default function Header() {
             onClick={() => setIsMobileMenuOpen(true)}
             className="md:hidden p-2 text-muted-foreground hover:text-white transition-colors"
             id="mobile-menu-trigger"
+            aria-label="Open navigation menu"
           >
             <Menu className="h-6 w-6" />
           </button>
@@ -163,6 +164,8 @@ export default function Header() {
                     onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                     className="p-1.5 sm:p-2 flex items-center gap-1.5 text-muted-foreground hover:text-white transition-colors rounded-full border border-transparent hover:border-border"
                     id="profile-dropdown-trigger"
+                    aria-label="Open account menu"
+                    aria-expanded={isProfileDropdownOpen}
                   >
                     <UserIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                     <span className="hidden lg:inline text-xs max-w-[80px] truncate text-left">

@@ -95,9 +95,9 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
                     onClick={() => setActiveImageIdx(idx)}
                     className={`relative w-20 aspect-[4/5] rounded overflow-hidden bg-zinc-950 border transition-all ${idx === activeImageIdx ? 'border-white' : 'border-border hover:border-white/50'}`}
                   >
-                    <Image 
+                  <Image 
                       src={img}
-                      alt={`${product.name} thumbnail ${idx}`}
+                      alt={`${product.name} - view ${idx + 1} of ${product.images.length}`}
                       fill
                       sizes="80px"
                       className="object-cover"

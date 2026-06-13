@@ -45,7 +45,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <Link href={`/products/${product.slug}`} className="relative block aspect-[4/5] w-full overflow-hidden bg-zinc-950">
         <Image 
           src={product.images[0] || '/logo.png'} 
-          alt={product.name} 
+          alt={`${product.name} — ZELIX Streetwear`}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
@@ -55,7 +55,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         <button 
           onClick={handleToggleWishlist}
           className="absolute top-3 right-3 z-10 p-2.5 rounded-full glass hover:bg-white hover:text-black transition-all duration-300"
-          aria-label="Toggle Wishlist"
+          aria-label={favorited ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
         >
           <Heart 
             className={`h-4.5 w-4.5 transition-colors ${favorited ? 'fill-white stroke-white group-hover:fill-black group-hover:stroke-black' : 'stroke-white hover:stroke-black'}`} 

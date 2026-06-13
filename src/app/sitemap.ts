@@ -3,7 +3,7 @@ import { fetchProducts } from '@/lib/data';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const products = await fetchProducts();
-  const baseUrl = 'http://localhost:3000'; // Replace with production URL on deployment
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.zelix.shop';
 
   const productUrls = products.map((p) => ({
     url: `${baseUrl}/products/${p.slug}`,
@@ -26,15 +26,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/cart`,
+      url: `${baseUrl}/contact`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/legal/privacy`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly' as const,
       priority: 0.3,
     },
     {
-      url: `${baseUrl}/wishlist`,
+      url: `${baseUrl}/legal/refund`,
       lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
+      changeFrequency: 'yearly' as const,
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/legal/shipping`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly' as const,
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/legal/terms`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly' as const,
       priority: 0.3,
     },
   ];
