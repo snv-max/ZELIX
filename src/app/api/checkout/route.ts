@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createClient } from '@/utils/supabase/server';
+import { auth } from '@clerk/nextjs/server';
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
 
@@ -11,16 +11,15 @@ const stripe = stripeSecret ? new Stripe(stripeSecret, {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { userId } = await auth();
 
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized: Authentication required' }, { status: 401 });
     }
 
     const body = await req.json();
     const { cart, shippingAddress } = body;
-    const authenticatedUserId = user.id;
+    const authenticatedUserId = userId;
 
     if (!cart || cart.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AuthProvider } from '@/context/AuthContext';
+import { ClerkProvider } from '@clerk/nextjs';
 import { CartProvider } from '@/context/CartContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -74,12 +74,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
-      <head>
-        <meta name="theme-color" content="#09090b" />
-      </head>
-      <body className="antialiased min-h-full flex flex-col font-sans">
-        <AuthProvider>
+    <ClerkProvider>
+      <html lang="en" className="h-full">
+        <head>
+          <meta name="theme-color" content="#09090b" />
+        </head>
+        <body className="antialiased min-h-full flex flex-col font-sans">
           <CartProvider>
             <Suspense
               fallback={<div className="h-16 sm:h-20 bg-background/50 border-b border-border" />}
@@ -89,9 +89,9 @@ export default function RootLayout({
             <main className="flex-grow pt-16 sm:pt-20">{children}</main>
             <Footer />
           </CartProvider>
-        </AuthProvider>
-        <Analytics />
-      </body>
-    </html>
+          <Analytics />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

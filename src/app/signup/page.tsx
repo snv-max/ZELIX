@@ -1,89 +1,38 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import { UserPlus } from 'lucide-react';
-import Link from 'next/link';
+import React, { Suspense } from 'react';
+import { SignUp } from '@clerk/nextjs';
+import { useSearchParams } from 'next/navigation';
 
 function SignupContent() {
-  const { signUp, user, isLoading } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const [errorMsg, setErrorMsg] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const redirectUrl = searchParams.get('redirect') || '/account';
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      router.push(redirectUrl);
-    }
-  }, [user, isLoading, redirectUrl, router]);
-
-  const handleAuth0Signup = async () => {
-    setErrorMsg('');
-    setSubmitting(true);
-    const { error } = await signUp();
-    if (error) {
-      setErrorMsg(error.message || 'Authentication redirect failed.');
-      setSubmitting(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 rounded-full border-2 border-zinc-700 border-t-white animate-spin" />
-          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Verifying session...</span>
-        </div>
-      </div>
-    );
-  }
+  const redirectUrl = searchParams.get('redirect') || searchParams.get('redirect_url') || '/account';
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 grid-bg">
-      <div className="max-w-md w-full border border-border bg-card p-8 sm:p-10 rounded shadow-xl space-y-6">
-        <div className="text-center">
-          <span className="inline-block border border-accent/40 text-accent text-[9px] font-mono font-bold uppercase tracking-[0.2em] px-2.5 py-1 rounded-full mb-3 bg-accent/5">
-            MEMBER AREA
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
-            REGISTER
-          </h2>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1.5">
-            Create an account to track orders and save details
-          </p>
-        </div>
-
-        {errorMsg && (
-          <div className="bg-red-950/15 border border-red-500/20 text-error text-xs rounded p-4 font-mono text-center">
-            {errorMsg}
-          </div>
-        )}
-
-        <div className="space-y-4 pt-4">
-          <button 
-            onClick={handleAuth0Signup}
-            disabled={submitting}
-            className="w-full inline-flex items-center justify-center gap-2 h-12 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors disabled:bg-zinc-800 disabled:text-zinc-500 cursor-pointer pt-2"
-          >
-            <UserPlus className="h-4 w-4" />
-            {submitting ? 'Redirecting to Auth0...' : 'Sign Up with Auth0'}
-          </button>
-        </div>
-
-        <p className="text-center text-xs text-muted-foreground uppercase tracking-wider font-mono pt-2">
-          Already a member?{' '}
-          <Link href={`/login?redirect=${encodeURIComponent(redirectUrl)}`} className="text-white font-bold hover:underline">
-            Sign In
-          </Link>
-        </p>
-
-        <p className="text-center text-[10px] text-muted-foreground uppercase tracking-wider font-mono pt-2 leading-relaxed">
-          Secured by Auth0 Identity Services. All passwords, OAuth connections, and MFA codes are processed off-site for maximum security.
-        </p>
+      <div className="w-full max-w-md flex flex-col items-center">
+        <SignUp 
+          signInUrl="/login"
+          forceRedirectUrl={redirectUrl}
+          appearance={{
+            elements: {
+              card: "bg-card border border-border shadow-xl rounded",
+              headerTitle: "text-white uppercase font-black tracking-tight",
+              headerSubtitle: "text-xs text-muted-foreground uppercase tracking-widest mt-1",
+              socialButtonsBlockButton: "border border-border bg-transparent hover:bg-white/5 text-white text-xs uppercase tracking-widest font-bold h-12 transition-all rounded",
+              socialButtonsBlockButtonText: "text-white font-bold",
+              formButtonPrimary: "w-full h-12 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors pt-2",
+              formFieldLabel: "text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block",
+              formFieldInput: "w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded py-2.5 focus:outline-none focus:border-white transition-colors",
+              footerActionLink: "text-white font-bold hover:underline",
+              footerActionText: "text-xs text-muted-foreground uppercase tracking-wider font-mono",
+              dividerText: "bg-[#0d0d11] text-[9px] font-mono uppercase text-muted-foreground tracking-widest",
+              identityPreviewText: "text-white",
+              formResendCodeLink: "text-white font-bold hover:underline",
+              otpCodeFieldInput: "bg-[#18181b]/50 border border-border text-white text-xl font-bold font-mono rounded",
+            }
+          }}
+        />
       </div>
     </div>
   );

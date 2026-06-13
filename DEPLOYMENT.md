@@ -105,3 +105,37 @@ To send emails to any unverified customer email address in production:
 - **To use a backup provider**: Configure fallback credentials in `.env.local`:
   - `FALLBACK_SMTP_HOST`, `FALLBACK_SMTP_PORT`, `FALLBACK_SMTP_USER`, `FALLBACK_SMTP_PASSWORD`, `FALLBACK_SMTP_FROM`
   - Or configure a Resend API key: `RESEND_API_KEY=re_...`
+
+---
+
+## 7. Clerk Authentication Setup
+
+This application has been migrated from custom authentication/Auth0 to **Clerk**. Follow these steps to set up authentication for production:
+
+1. **Create Clerk Application**: Go to the [Clerk Dashboard](https://dashboard.clerk.com/) and create a new application. Select the authentication methods you wish to support (e.g., Email, Google, etc.).
+2. **Obtain API Keys**:
+   - Navigate to **API Keys** in your Clerk Dashboard.
+   - Copy the **Publishable Key** (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) and **Secret Key** (`CLERK_SECRET_KEY`).
+3. **Configure Environment Variables**:
+   Add the following variables to your `.env.local` and your Vercel deployment:
+   ```bash
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+   CLERK_SECRET_KEY=sk_test_...
+   NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+   NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
+   NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/account
+   NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/account
+   ```
+4. **Granting Admin Access**:
+   Access to `/admin` routes is protected on both client and server (via Next.js Middleware). To mark a user as an administrator:
+   - Go to the **Clerk Dashboard** > **Users**.
+   - Select the target user.
+   - Scroll down to the **Metadata** section and click **Edit** next to **Public Metadata**.
+   - Set the public metadata as:
+     ```json
+     {
+       "role": "admin"
+     }
+     ```
+   - Click **Save**. The user will now be authorized to access the `/admin` panel.
+

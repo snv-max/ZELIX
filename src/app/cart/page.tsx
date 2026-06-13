@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { useAuth } from '@/context/AuthContext';
+import { useUser } from '@clerk/nextjs';
 import { loadStripe } from '@stripe/stripe-js';
 import { Trash2, ShoppingBag, Plus, Minus, CreditCard, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { mockDb } from '@/lib/mockData';
@@ -13,7 +13,7 @@ import { mockDb } from '@/lib/mockData';
 export default function CartPage() {
   const router = useRouter();
   const { cart, removeFromCart, updateCartQuantity, cartTotal, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, isLoaded } = useUser();
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [shippingAddress, setShippingAddress] = useState({
@@ -34,6 +34,7 @@ export default function CartPage() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLoaded) return;
     if (!user) {
       alert('Please log in or register to complete your purchase.');
       router.push('/login?redirect=/cart');
@@ -91,7 +92,7 @@ export default function CartPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             order: orderForEmail,
-            customerEmail: shippingAddress.email || user.email || '',
+            customerEmail: shippingAddress.email || user.primaryEmailAddress?.emailAddress || '',
           }),
         }).catch(err => console.error('Failed to trigger confirmation email:', err));
 

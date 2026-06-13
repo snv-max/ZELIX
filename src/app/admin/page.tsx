@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { fetchCategories, fetchProducts } from '@/lib/data';
 import { mockDb } from '@/lib/mockData';
@@ -10,8 +10,10 @@ import { Product, Category, Order, Profile } from '@/types/database.types';
 import { LayoutDashboard, ShoppingBag, FolderOpen, ClipboardList, Users, ShieldAlert, Plus, Edit2, Trash2, CheckCircle2, Package, RefreshCw, BarChart2, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
 
 export default function AdminDashboardPage() {
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
+  const isAdmin = user?.publicMetadata?.role === 'admin';
+  const authLoading = !isLoaded;
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'categories' | 'orders' | 'customers'>('overview');

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { useAuth } from '@/context/AuthContext';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { ShoppingBag, Heart, User as UserIcon, Search, X, Menu, Settings, LogOut } from 'lucide-react';
 
 export default function Header() {
@@ -13,7 +13,10 @@ export default function Header() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { cartCount, wishlist } = useCart();
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, isSignedIn } = useUser();
+  const { signOut } = useClerk();
+  
+  const isAdmin = user?.publicMetadata?.role === 'admin';
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -106,7 +109,7 @@ export default function Header() {
             <Link href="/products?category=track" className={activeLinkClass('/products?category=track')}>Tracks</Link>
             <Link href="/products?category=pants" className={activeLinkClass('/products?category=pants')}>Pants</Link>
             <Link href="/cart" className={activeLinkClass('/cart')}>Cart ({mounted ? cartCount : 0})</Link>
-            {mounted && user ? (
+            {mounted && isSignedIn ? (
               <Link href="/account" className={activeLinkClass('/account')}>Account</Link>
             ) : (
               <Link href="/login" className={activeLinkClass('/login')}>Login</Link>
@@ -158,7 +161,7 @@ export default function Header() {
 
             {/* Profile Dropdown Container */}
             <div className="relative">
-              {mounted && user ? (
+              {mounted && isSignedIn && user ? (
                 <>
                   <button 
                     onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
@@ -169,7 +172,7 @@ export default function Header() {
                   >
                     <UserIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                     <span className="hidden lg:inline text-xs max-w-[80px] truncate text-left">
-                      {profile?.full_name || user.email?.split('@')[0]}
+                      {user.fullName || user.primaryEmailAddress?.emailAddress?.split('@')[0]}
                     </span>
                   </button>
 
@@ -183,7 +186,7 @@ export default function Header() {
                       <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg glass border border-border z-50 py-1 origin-top-right animate-fade-in">
                         <div className="px-4 py-3 border-b border-border">
                           <p className="text-xs text-muted-foreground font-mono">Signed in as</p>
-                          <p className="text-sm font-semibold text-white truncate">{user.email}</p>
+                          <p className="text-sm font-semibold text-white truncate">{user.primaryEmailAddress?.emailAddress}</p>
                           {isAdmin && (
                             <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-widest text-black bg-white px-1.5 py-0.5 rounded">
                               Admin Role
@@ -212,9 +215,9 @@ export default function Header() {
                         )}
 
                         <button 
-                          onClick={() => {
+                          onClick={async () => {
                             setIsProfileDropdownOpen(false);
-                            signOut();
+                            await signOut();
                             router.push('/');
                           }}
                           className="w-full flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-error/5 transition-colors text-left border-t border-border/50"
@@ -304,7 +307,7 @@ export default function Header() {
                 >
                   Cart ({mounted ? cartCount : 0})
                 </Link>
-                {mounted && user ? (
+                {mounted && isSignedIn ? (
                   <Link 
                     href="/account" 
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -325,13 +328,13 @@ export default function Header() {
             </div>
 
             <div className="border-t border-border pt-6">
-              {mounted && user ? (
+              {mounted && isSignedIn && user ? (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
                     <UserIcon className="h-5 w-5 text-muted-foreground" />
                     <div className="truncate">
-                      <p className="text-sm font-semibold text-white truncate">{profile?.full_name || user.email}</p>
-                      <p className="text-xs text-muted-foreground uppercase tracking-widest">{profile?.role}</p>
+                      <p className="text-sm font-semibold text-white truncate">{user.fullName || user.primaryEmailAddress?.emailAddress}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-widest">{isAdmin ? 'admin' : 'customer'}</p>
                     </div>
                   </div>
                   <Link 
@@ -351,9 +354,9 @@ export default function Header() {
                     </Link>
                   )}
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       setIsMobileMenuOpen(false);
-                      signOut();
+                      await signOut();
                       router.push('/');
                     }}
                     className="text-sm text-error hover:text-red-400 py-1.5 text-left transition-colors"

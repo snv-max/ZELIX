@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { mockDb } from '@/lib/mockData';
@@ -15,17 +15,17 @@ interface OrderWithItems extends Order {
 }
 
 export default function OrdersPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
 
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/login?redirect=/orders');
+    if (isLoaded && !user) {
+      router.push('/login?redirect=/orders');
     }
-  }, [user, authLoading, router]);
+  }, [user, isLoaded, router]);
 
   useEffect(() => {
     async function loadOrders() {
@@ -117,7 +117,7 @@ export default function OrdersPage() {
     });
   };
 
-  if (authLoading || loading) {
+  if (!isLoaded || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">

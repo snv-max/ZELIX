@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Product, CartItem } from '@/types/database.types';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@clerk/nextjs';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { mockDb } from '@/lib/mockData';
 
@@ -22,7 +22,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { userId } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<Product[]>([]);
   const wishlistMountedRef = useRef(true);
@@ -42,7 +42,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     wishlistMountedRef.current = true;
 
     const loadWishlist = async () => {
-      if (!user) {
+      if (!userId) {
         setWishlist([]);
         return;
       }
@@ -52,7 +52,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const { data, error } = await supabase
             .from('wishlists')
             .select('product_id, products(*)')
-            .eq('user_id', user.id);
+            .eq('user_id', userId);
 
           if (!wishlistMountedRef.current) return;
           if (error) throw error;
@@ -65,11 +65,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const msg = err?.message || '';
           if (msg.includes('aborted') || err?.name === 'AbortError') return;
           console.error('Error loading Supabase wishlist:', err);
-          setWishlist(mockDb.getWishlist(user.id));
+          setWishlist(mockDb.getWishlist(userId));
         }
       } else {
         if (wishlistMountedRef.current) {
-          setWishlist(mockDb.getWishlist(user.id));
+          setWishlist(mockDb.getWishlist(userId));
         }
       }
     };
@@ -79,7 +79,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return () => {
       wishlistMountedRef.current = false;
     };
-  }, [user]);
+  }, [userId]);
 
   // Save Cart to LocalStorage
   const saveCart = (newCart: CartItem[]) => {
@@ -126,7 +126,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleWishlist = async (product: Product) => {
-    if (!user) {
+    if (!userId) {
       // Must be logged in to wishlist, trigger visual alert or redirect
       alert('Please log in to save items to your wishlist.');
       return;
@@ -150,19 +150,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           await supabase
             .from('wishlists')
             .delete()
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
             .eq('product_id', product.id);
         } else {
           await supabase
             .from('wishlists')
-            .insert({ user_id: user.id, product_id: product.id });
+            .insert({ user_id: userId, product_id: product.id });
         }
       } catch (err) {
         console.error('Error syncing wishlist with Supabase:', err);
-        mockDb.toggleWishlist(user.id, product.id);
+        mockDb.toggleWishlist(userId, product.id);
       }
     } else {
-      mockDb.toggleWishlist(user.id, product.id);
+      mockDb.toggleWishlist(userId, product.id);
     }
   };
 
