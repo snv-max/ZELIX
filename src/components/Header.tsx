@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { ShoppingBag, Heart, User as UserIcon, Search, X, Menu, Settings, LogOut } from 'lucide-react';
@@ -11,6 +11,7 @@ import { ShoppingBag, Heart, User as UserIcon, Search, X, Menu, Settings, LogOut
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { cartCount, wishlist } = useCart();
   const { user, profile, isAdmin, signOut } = useAuth();
   
@@ -29,9 +30,35 @@ export default function Header() {
   };
 
   const activeLinkClass = (path: string) => {
-    return pathname === path 
-      ? 'text-white font-medium border-b border-white pb-1' 
-      : 'text-muted-foreground hover:text-white transition-colors pb-1';
+    const [pathPart, queryPart] = path.split('?');
+    let isActive = false;
+    
+    if (queryPart) {
+      const [key, val] = queryPart.split('=');
+      isActive = pathname === pathPart && searchParams.get(key) === val;
+    } else {
+      isActive = pathname === pathPart && !searchParams.get('category');
+    }
+
+    return isActive 
+      ? 'text-red-500 font-semibold border-b-2 border-red-500 pb-1' 
+      : 'text-muted-foreground hover:text-red-500 transition-colors pb-1';
+  };
+
+  const mobileLinkClass = (path: string) => {
+    const [pathPart, queryPart] = path.split('?');
+    let isActive = false;
+    
+    if (queryPart) {
+      const [key, val] = queryPart.split('=');
+      isActive = pathname === pathPart && searchParams.get(key) === val;
+    } else {
+      isActive = pathname === pathPart && !searchParams.get('category');
+    }
+
+    return isActive
+      ? 'text-red-500 font-bold'
+      : 'text-muted-foreground hover:text-red-500 transition-colors';
   };
 
   return (
@@ -224,49 +251,49 @@ export default function Header() {
                 <Link 
                   href="/" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={pathname === '/' ? 'text-white' : 'text-muted-foreground'}
+                  className={mobileLinkClass('/')}
                 >
                   Home
                 </Link>
                 <Link 
                   href="/products" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={pathname === '/products' ? 'text-white' : 'text-muted-foreground'}
+                  className={mobileLinkClass('/products')}
                 >
                   Shop All
                 </Link>
                 <Link 
                   href="/products?category=tshirt" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-muted-foreground hover:text-white transition-colors"
+                  className={mobileLinkClass('/products?category=tshirt')}
                 >
                   T-Shirts
                 </Link>
                 <Link 
                   href="/products?category=track" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-muted-foreground hover:text-white transition-colors"
+                  className={mobileLinkClass('/products?category=track')}
                 >
                   Tracks & Hoodies
                 </Link>
                 <Link 
                   href="/products?category=pants" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-muted-foreground hover:text-white transition-colors"
+                  className={mobileLinkClass('/products?category=pants')}
                 >
                   Pants
                 </Link>
                 <Link 
                   href="/products?category=accessories" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-muted-foreground hover:text-white transition-colors"
+                  className={mobileLinkClass('/products?category=accessories')}
                 >
                   Accessories
                 </Link>
                 <Link 
                   href="/products?category=shoes" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-muted-foreground hover:text-white transition-colors"
+                  className={mobileLinkClass('/products?category=shoes')}
                 >
                   Shoes
                 </Link>

@@ -4,6 +4,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: {
@@ -28,7 +29,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <CartProvider>
-            <Header />
+            <Suspense fallback={<div className="h-16 sm:h-20 bg-background/50 border-b border-border" />}>
+              <Header />
+            </Suspense>
             <main className="flex-grow pt-16 sm:pt-20">
               {children}
             </main>
