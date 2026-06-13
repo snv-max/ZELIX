@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
 import { Trash2, ShoppingBag, Plus, Minus, CreditCard, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { mockDb } from '@/lib/mockData';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 export default function CartPage() {
   const router = useRouter();
@@ -71,6 +72,22 @@ export default function CartPage() {
           },
           orderItems
         );
+
+        // Trigger order confirmation email (async)
+        const orderForEmail = {
+          ...mockOrder,
+          items: cart.map(item => ({
+            id: 'mock_item_' + Math.random().toString(36).substr(2, 9),
+            order_id: mockOrder.id,
+            product_id: item.product.id,
+            quantity: item.quantity,
+            price: item.product.price,
+            size: item.size,
+            color: item.color,
+            product: item.product
+          }))
+        };
+        sendOrderConfirmationEmail(orderForEmail as any, shippingAddress.email || user.email || '');
 
         // Clear local cart
         clearCart();

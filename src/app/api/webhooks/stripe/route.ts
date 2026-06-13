@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { supabase } from '@/lib/supabase';
 import { mockDb } from '@/lib/mockData';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -92,6 +93,23 @@ export async function POST(req: Request) {
 
         if (itemsError) throw itemsError;
 
+        // Trigger order confirmation email (async)
+        const emailItems = orderItemsToInsert.map((item: any) => {
+          const cartItem = cart.find((c: any) => c.productId === item.product_id);
+          return {
+            ...item,
+            product: cartItem ? cartItem.product : undefined
+          };
+        });
+        
+        sendOrderConfirmationEmail(
+          {
+            ...orderData,
+            items: emailItems
+          } as any,
+          session.customer_email || shippingAddress.email || ''
+        );
+
         // Update each product's inventory
         for (const item of cart) {
           const dbProd = productsData?.find((p: any) => p.id === item.productId);
@@ -106,7 +124,7 @@ export async function POST(req: Request) {
       } else {
         // Fallback sync to local mock DB
         console.log('No active Supabase connection. Saving Stripe checkout details to mockDb.');
-        mockDb.createOrder(
+        const mockOrder = mockDb.createOrder(
           {
             user_id: userId,
             total_amount: totalAmount,
@@ -122,6 +140,22 @@ export async function POST(req: Request) {
             color: item.color,
           }))
         );
+
+        // Trigger email confirmation for mock fallback (async)
+        const orderForEmail = {
+          ...mockOrder,
+          items: cart.map((item: any) => ({
+            id: 'mock_item_' + Math.random().toString(36).substr(2, 9),
+            order_id: mockOrder.id,
+            product_id: item.productId,
+            quantity: item.quantity,
+            price: item.product.price,
+            size: item.size,
+            color: item.color,
+            product: item.product
+          }))
+        };
+        sendOrderConfirmationEmail(orderForEmail as any, session.customer_email || shippingAddress.email || '');
       }
     }
 
