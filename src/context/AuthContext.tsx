@@ -7,7 +7,8 @@ import { ClerkProvider as ClerkOriginalProvider, useUser as useClerkUser, useCle
 export const isClerkConfigured = 
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && 
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.startsWith('pk_') && 
-  !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes('...');
+  !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes('...') &&
+  !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes('ZXhwb3J0LXRlc3QtOTkuY2xlcmsuYWNjb3VudHMuZGV2JA');
 
 // Define types for our custom context
 interface MockUser {
