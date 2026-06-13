@@ -67,3 +67,41 @@ When the first user registers, they are promoted to `admin` automatically by the
 UPDATE public.profiles SET role = 'admin' WHERE email = 'your-email@example.com';
 ```
 Now, logging in as this user will unlock the **Admin Dashboard** in the navigation header.
+
+---
+
+## 6. Amazon SES Email Setup & Sandbox Release Guide
+
+By default, newly created Amazon SES accounts are placed in the **SES Sandbox environment**. This introduces limitations on email sending to prevent abuse.
+
+### Sandbox Mode Limitations
+1. **Verified Senders Only**: You can only send emails from verified email addresses or domains.
+2. **Verified Recipients Only**: You can only send emails to verified email addresses or domains. Sending to any unverified address (like a new customer registering during checkout) will result in a `554 Message rejected: Email address is not verified` error.
+3. **Daily/Per-Second Limits**: Sending volumes are capped at 200 messages per 24 hours, and 1 message per second.
+
+### Step 1: Verify Email Addresses for Sandbox Testing
+If you are testing locally or in staging:
+1. Go to the **Amazon SES Console** > **Verified identities**.
+2. Click **Create identity**.
+3. Select **Email address**, enter your sender email (e.g., `orders@yourdomain.com`), and click **Create identity**. Go to that inbox and click the verification link sent by AWS.
+4. Select **Email address** again, enter your test recipient email address (e.g., your personal gmail), and verify it using the link.
+5. In your `.env.local` or Vercel environment configurations, set `SMTP_FROM` to your verified sender address, and perform checkouts using your verified recipient address.
+
+### Step 2: Request Sandbox Release (Move to Production)
+To send emails to any unverified customer email address in production:
+1. Open the **AWS Console** and navigate to the **Amazon SES Service**.
+2. In the left navigation pane, select **Account dashboard**.
+3. Under the warning banner "Your Amazon SES account is in the sandbox...", click **Request production access** (or click **Request sandbox release**).
+4. Fill out the request form:
+   - **Mail type**: Transactional (Order confirmations).
+   - **Website URL**: `https://www.zelix.shop/` (or your active production URL).
+   - **Use case description**: Provide a clear explanation of your application. E.g.:
+     > "We run an e-commerce storefront called ZELIX. We use Amazon SES to send automated, transactional order confirmation invoices to customers immediately following a successful checkout via Stripe. Emails contain order details, itemized lists, and shipping tracking information. All recipients are opted-in users who have initiated a purchase."
+   - **Bounce and Complaint Management**: Describe how you will monitor bounces (e.g., "We monitor bounce rates via AWS SNS notifications and remove invalid emails from our active subscriber list immediately").
+5. Submit the request. AWS support typically reviews and approves sandbox release requests within 24 hours.
+
+### Step 3: Local Testing & Fallbacks
+- **To bypass emails completely**: Set `DISABLE_EMAIL=true` in your `.env.local`. Order confirmations will print to your terminal console instead of hitting SES.
+- **To use a backup provider**: Configure fallback credentials in `.env.local`:
+  - `FALLBACK_SMTP_HOST`, `FALLBACK_SMTP_PORT`, `FALLBACK_SMTP_USER`, `FALLBACK_SMTP_PASSWORD`, `FALLBACK_SMTP_FROM`
+  - Or configure a Resend API key: `RESEND_API_KEY=re_...`
