@@ -18,6 +18,8 @@ interface AuthContextType {
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   verifyEmailOtp: (email: string, token: string) => Promise<{ error: Error | null }>;
+  signInWithOtp: (email: string) => Promise<{ error: Error | null }>;
+  verifyLoginOtp: (email: string, token: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -131,8 +133,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error } = await supabase!.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        // Mock authentication success
-        loadMockUser(email);
+        // Mock authentication check
+        const mockUsers = JSON.parse(localStorage.getItem('zelix_mock_users') || '[]');
+        const existing = mockUsers.find((u: Profile) => u.email === email);
+        
+        // Demo credential bypass
+        if (email === MOCK_ADMIN_USER.email || email === MOCK_CUSTOMER_USER.email) {
+          loadMockUser(email);
+        } else if (existing) {
+          const mockCreds = JSON.parse(localStorage.getItem('zelix_mock_credentials') || '{}');
+          const storedPassword = mockCreds[email];
+          if (storedPassword && storedPassword !== password) {
+            throw new Error('Invalid password for this account. Please try again.');
+          }
+          loadMockUser(email);
+        } else {
+          throw new Error('User does not exist. Please register first.');
+        }
       }
       return { error: null };
     } catch (err: any) {
@@ -179,6 +196,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         mockUsers.push(newProfile);
         localStorage.setItem('zelix_mock_users', JSON.stringify(mockUsers));
         
+        // Save credentials mapping for login verification
+        const mockCreds = JSON.parse(localStorage.getItem('zelix_mock_credentials') || '{}');
+        mockCreds[email] = password;
+        localStorage.setItem('zelix_mock_credentials', JSON.stringify(mockCreds));
+
         // In mock mode with OTP, we don't log them in yet, we let them enter '123456'
         // But let's temporarily store the pending profile in local storage
         localStorage.setItem('zelix_mock_pending_user', JSON.stringify(newProfile));
@@ -213,6 +235,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('zelix_mock_session', JSON.stringify(pendingUser));
           localStorage.removeItem('zelix_mock_pending_user');
         }
+      }
+      return { error: null };
+    } catch (err: any) {
+      return { error: err as Error };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signInWithOtp = async (email: string): Promise<{ error: Error | null }> => {
+    setIsLoading(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase!.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: window.location.origin,
+          }
+        });
+        if (error) throw error;
+      } else {
+        // Check if user exists in mock database (except demo accounts)
+        const mockUsers = JSON.parse(localStorage.getItem('zelix_mock_users') || '[]');
+        const existing = mockUsers.find((u: Profile) => u.email === email);
+        if (!existing && email !== MOCK_CUSTOMER_USER.email && email !== MOCK_ADMIN_USER.email) {
+          throw new Error('User does not exist. Please register first.');
+        }
+        console.log(`Mock OTP login requested for: ${email}`);
+        localStorage.setItem('zelix_mock_pending_otp_email', email);
+      }
+      return { error: null };
+    } catch (err: any) {
+      return { error: err as Error };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyLoginOtp = async (email: string, token: string): Promise<{ error: Error | null }> => {
+    setIsLoading(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase!.auth.verifyOtp({
+          email,
+          token,
+          type: 'email',
+        });
+        if (error) throw error;
+      } else {
+        if (token !== '123456') {
+          throw new Error('Invalid OTP code. Please enter 123456 for mock testing.');
+        }
+        loadMockUser(email);
+        localStorage.removeItem('zelix_mock_pending_otp_email');
       }
       return { error: null };
     } catch (err: any) {
@@ -310,6 +386,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatePassword,
         signInWithGoogle,
         verifyEmailOtp,
+        signInWithOtp,
+        verifyLoginOtp,
       }}
     >
       {children}
