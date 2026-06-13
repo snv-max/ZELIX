@@ -264,7 +264,7 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
                     <div className="flex gap-2.5 items-start">
                       <Truck className="h-4.5 w-4.5 text-white shrink-0" />
                       <p className="text-xs">
-                        <strong>Express Courier Shipping:</strong> Free worldwide delivery on all purchases above $200. Standard courier dispatch takes 3–5 working days.
+                        <strong>Express Courier Shipping:</strong> Free worldwide delivery on all purchases above ₹3,000. Standard courier dispatch takes 3–5 working days.
                       </p>
                     </div>
                     <div className="flex gap-2.5 items-start">

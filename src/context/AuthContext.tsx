@@ -35,6 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let subscription: any = null;
+
     const fetchProfile = async (uid: string, userEmail: string) => {
       try {
         const { data, error } = await supabase!
@@ -76,21 +78,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    getSession();
-
-    const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id, session.user.email || '');
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
+    try {
+      getSession();
+    } catch (err) {
+      console.error('Error starting getSession:', err);
       setIsLoading(false);
-    });
+    }
+
+    try {
+      const { data } = supabase!.auth.onAuthStateChange(async (event, session) => {
+        try {
+          if (session?.user) {
+            setUser(session.user);
+            await fetchProfile(session.user.id, session.user.email || '');
+          } else {
+            setUser(null);
+            setProfile(null);
+          }
+        } catch (innerErr) {
+          console.error('Error inside onAuthStateChange handler:', innerErr);
+        } finally {
+          setIsLoading(false);
+        }
+      });
+      subscription = data?.subscription;
+    } catch (err) {
+      console.error('Failed to register onAuthStateChange listener:', err);
+      setIsLoading(false);
+    }
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        try {
+          subscription.unsubscribe();
+        } catch (err) {
+          console.error('Failed to unsubscribe from auth state changes:', err);
+        }
+      }
     };
   }, []);
 

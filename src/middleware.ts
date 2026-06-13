@@ -27,11 +27,25 @@ function isRateLimited(ip: string, limit: number, windowMs: number): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const ip = (request as any).ip || request.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
   const pathname = request.nextUrl.pathname;
 
+  // Forward old auth paths to correct endpoints
+  if (pathname === '/auth/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+  if (pathname === '/auth/signup') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/signup';
+    return NextResponse.redirect(url);
+  }
+
+  const ip = (request as any).ip || request.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
+
   // 1. Rate Limiting to prevent brute-force/abuse
-  if (pathname.startsWith('/api/') || pathname === '/login' || pathname === '/signup' || pathname === '/auth/login' || pathname === '/auth/signup') {
+  const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost');
+  if (!isLocalhost && (pathname.startsWith('/api/') || pathname === '/login' || pathname === '/signup' || pathname === '/auth/login' || pathname === '/auth/signup')) {
     const isApi = pathname.startsWith('/api/');
     const limit = isApi ? 60 : 15; // 60 requests/min for APIs, 15/min for auth pages
     const windowMs = 60 * 1000; // 1 minute window

@@ -36,7 +36,7 @@ export default function CartPage() {
     e.preventDefault();
     if (!user) {
       alert('Please log in or register to complete your purchase.');
-      router.push('/auth/login?redirect=/cart');
+      router.push('/login?redirect=/cart');
       return;
     }
 
@@ -383,6 +383,13 @@ export default function CartPage() {
               {/* Checkout Buttons */}
               <button 
                 type="submit"
+                onClick={(e) => {
+                  if (!user) {
+                    e.preventDefault();
+                    alert('Please log in or register to complete your purchase.');
+                    router.push('/login?redirect=/cart');
+                  }
+                }}
                 disabled={isCheckingOut}
                 className="w-full inline-flex items-center justify-center gap-2 h-14 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors cursor-pointer mt-6 disabled:bg-zinc-800 disabled:text-zinc-500"
               >

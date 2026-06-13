@@ -167,7 +167,7 @@ export default async function HomePage() {
             </div>
             <h3 className="text-base font-bold uppercase tracking-wider text-white mb-2">Express Shipping</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Global express dispatch with end-to-end customs handling and secure courier transport. Free on orders above $200.
+              Global express dispatch with end-to-end customs handling and secure courier transport. Free on orders above ₹3,000.
             </p>
           </div>
 

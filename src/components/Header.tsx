@@ -19,6 +19,11 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,19 +100,25 @@ export default function Header() {
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm uppercase tracking-widest">
             <Link href="/" className={activeLinkClass('/')}>Home</Link>
-            <Link href="/products" className={activeLinkClass('/products')}>Shop All</Link>
+            <Link href="/products" className={activeLinkClass('/products')}>Shop</Link>
             <Link href="/products?category=tshirt" className={activeLinkClass('/products?category=tshirt')}>T-Shirts</Link>
-            <Link href="/products?category=track" className={activeLinkClass('/products?category=track')}>Tracks & Hoodies</Link>
+            <Link href="/products?category=track" className={activeLinkClass('/products?category=track')}>Tracks</Link>
             <Link href="/products?category=pants" className={activeLinkClass('/products?category=pants')}>Pants</Link>
+            <Link href="/cart" className={activeLinkClass('/cart')}>Cart ({mounted ? cartCount : 0})</Link>
+            {mounted && user ? (
+              <Link href="/account" className={activeLinkClass('/account')}>Account</Link>
+            ) : (
+              <Link href="/login" className={activeLinkClass('/login')}>Login</Link>
+            )}
           </nav>
 
           {/* Header Action Icons */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-3 md:gap-4">
             
             {/* Search Icon */}
             <button 
               onClick={() => setIsSearchOpen(true)}
-              className="p-2 text-muted-foreground hover:text-white transition-colors relative"
+              className="p-1.5 sm:p-2 text-muted-foreground hover:text-white transition-colors relative"
               aria-label="Search Catalog"
               id="search-btn"
             >
@@ -117,12 +128,12 @@ export default function Header() {
             {/* Wishlist Icon */}
             <Link 
               href="/wishlist" 
-              className="p-2 text-muted-foreground hover:text-white transition-colors relative"
+              className="p-1.5 sm:p-2 text-muted-foreground hover:text-white transition-colors relative"
               aria-label="View Wishlist"
               id="wishlist-btn"
             >
               <Heart className="h-5 w-5 sm:h-6 sm:w-6" />
-              {wishlist.length > 0 && (
+              {mounted && wishlist.length > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-white text-black text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse-glow">
                   {wishlist.length}
                 </span>
@@ -132,12 +143,12 @@ export default function Header() {
             {/* Cart Icon */}
             <Link 
               href="/cart" 
-              className="p-2 text-muted-foreground hover:text-white transition-colors relative"
+              className="p-1.5 sm:p-2 text-muted-foreground hover:text-white transition-colors relative"
               aria-label="View Shopping Cart"
               id="cart-btn"
             >
               <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6" />
-              {cartCount > 0 && (
+              {mounted && cartCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-white text-black text-[10px] font-bold rounded-full flex items-center justify-center">
                   {cartCount}
                 </span>
@@ -146,11 +157,11 @@ export default function Header() {
 
             {/* Profile Dropdown Container */}
             <div className="relative">
-              {user ? (
+              {mounted && user ? (
                 <>
                   <button 
                     onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                    className="p-2 flex items-center gap-1.5 text-muted-foreground hover:text-white transition-colors rounded-full border border-transparent hover:border-border"
+                    className="p-1.5 sm:p-2 flex items-center gap-1.5 text-muted-foreground hover:text-white transition-colors rounded-full border border-transparent hover:border-border"
                     id="profile-dropdown-trigger"
                   >
                     <UserIcon className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -215,7 +226,7 @@ export default function Header() {
               ) : (
                 <Link 
                   href="/login" 
-                  className="p-2 flex items-center gap-1.5 text-muted-foreground hover:text-white transition-colors"
+                  className="p-1.5 sm:p-2 flex items-center gap-1.5 text-muted-foreground hover:text-white transition-colors"
                   id="login-btn"
                 >
                   <UserIcon className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -260,7 +271,7 @@ export default function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={mobileLinkClass('/products')}
                 >
-                  Shop All
+                  Shop
                 </Link>
                 <Link 
                   href="/products?category=tshirt" 
@@ -284,24 +295,34 @@ export default function Header() {
                   Pants
                 </Link>
                 <Link 
-                  href="/products?category=accessories" 
+                  href="/cart" 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={mobileLinkClass('/products?category=accessories')}
+                  className={mobileLinkClass('/cart')}
                 >
-                  Accessories
+                  Cart ({mounted ? cartCount : 0})
                 </Link>
-                <Link 
-                  href="/products?category=shoes" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={mobileLinkClass('/products?category=shoes')}
-                >
-                  Shoes
-                </Link>
+                {mounted && user ? (
+                  <Link 
+                    href="/account" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={mobileLinkClass('/account')}
+                  >
+                    Account
+                  </Link>
+                ) : (
+                  <Link 
+                    href="/login" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={mobileLinkClass('/login')}
+                  >
+                    Login
+                  </Link>
+                )}
               </nav>
             </div>
 
             <div className="border-t border-border pt-6">
-              {user ? (
+              {mounted && user ? (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
                     <UserIcon className="h-5 w-5 text-muted-foreground" />
