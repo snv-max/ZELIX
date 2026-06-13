@@ -151,21 +151,12 @@ export default function Header() {
                         </div>
 
                         <Link 
-                          href="/profile" 
+                          href="/account" 
                           onClick={() => setIsProfileDropdownOpen(false)}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
                         >
                           <UserIcon className="h-4 w-4" />
-                          My Profile
-                        </Link>
-
-                        <Link 
-                          href="/orders" 
-                          onClick={() => setIsProfileDropdownOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                          <ClipboardList className="h-4 w-4" />
-                          Order History
+                          My Account
                         </Link>
 
                         {isAdmin && (
@@ -196,7 +187,7 @@ export default function Header() {
                 </>
               ) : (
                 <Link 
-                  href="/auth/login" 
+                  href="/login" 
                   className="p-2 flex items-center gap-1.5 text-muted-foreground hover:text-white transition-colors"
                   id="login-btn"
                 >
@@ -293,11 +284,11 @@ export default function Header() {
                     </div>
                   </div>
                   <Link 
-                    href="/profile" 
+                    href="/account" 
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="text-sm text-muted-foreground hover:text-white py-1.5 transition-colors"
                   >
-                    Account settings
+                    My Account
                   </Link>
                   {isAdmin && (
                     <Link 
@@ -321,7 +312,7 @@ export default function Header() {
                 </div>
               ) : (
                 <Link 
-                  href="/auth/login" 
+                  href="/login" 
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="w-full inline-flex items-center justify-center px-4 py-3 bg-white text-black font-semibold rounded text-sm uppercase tracking-widest"
                 >
