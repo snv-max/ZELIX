@@ -1,22 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Mail, Key, User as UserIcon, UserPlus } from 'lucide-react';
+import { Mail, Key, User as UserIcon, UserPlus, ArrowLeft } from 'lucide-react';
 
 function SignupContent() {
-  const { signUp, user, isLoading } = useAuth();
+  const { signUp, verifyEmailOtp, user, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const [step, setStep] = useState<'signup' | 'otp'>('signup');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
+  const [resendCooldown, setResendCooldown] = useState(0);
 
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const redirectUrl = searchParams.get('redirect') || '/account';
 
   useEffect(() => {
@@ -24,6 +28,13 @@ function SignupContent() {
       router.push(redirectUrl);
     }
   }, [user, isLoading, redirectUrl, router]);
+
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +52,94 @@ function SignupContent() {
       setErrorMsg(error.message || 'Registration failed. Please check inputs.');
       setSubmitting(false);
     } else {
+      setStep('otp');
+      setSubmitting(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    const cleanValue = value.replace(/[^a-zA-Z0-9]/g, '');
+    if (!cleanValue) {
+      const newDigits = [...otpDigits];
+      newDigits[index] = '';
+      setOtpDigits(newDigits);
+      return;
+    }
+
+    const char = cleanValue.slice(-1);
+    const newDigits = [...otpDigits];
+    newDigits[index] = char;
+    setOtpDigits(newDigits);
+
+    if (index < 5 && char !== '') {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (otpDigits[index] === '' && index > 0) {
+        const newDigits = [...otpDigits];
+        newDigits[index - 1] = '';
+        setOtpDigits(newDigits);
+        inputRefs.current[index - 1]?.focus();
+      } else {
+        const newDigits = [...otpDigits];
+        newDigits[index] = '';
+        setOtpDigits(newDigits);
+      }
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text');
+    const cleanText = pastedData.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+    
+    if (cleanText) {
+      const newDigits = [...otpDigits];
+      for (let i = 0; i < Math.min(cleanText.length, 6); i++) {
+        newDigits[i] = cleanText[i];
+      }
+      setOtpDigits(newDigits);
+      const focusIndex = Math.min(cleanText.length, 5);
+      inputRefs.current[focusIndex]?.focus();
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSubmitting(true);
+
+    const code = otpDigits.join('');
+    if (code.length < 6) {
+      setErrorMsg('Please enter all 6 digits of the verification code.');
+      setSubmitting(false);
+      return;
+    }
+
+    const { error } = await verifyEmailOtp(email, code);
+    if (error) {
+      setErrorMsg(error.message || 'Invalid verification code. Please try again.');
+      setSubmitting(false);
+    } else {
       router.push(redirectUrl);
     }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setErrorMsg('');
+    setSubmitting(true);
+
+    const { error } = await signUp(email, password, fullName);
+    if (error) {
+      setErrorMsg(error.message || 'Failed to resend code.');
+    } else {
+      setResendCooldown(60);
+    }
+    setSubmitting(false);
   };
 
   if (isLoading) {
@@ -60,97 +157,179 @@ function SignupContent() {
     <div className="min-h-[85vh] flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 grid-bg">
       <div className="max-w-md w-full border border-border bg-card p-8 sm:p-10 rounded shadow-xl space-y-6">
         
-        {/* Title */}
-        <div className="text-center">
-          <span className="inline-block border border-accent/40 text-accent text-[9px] font-mono font-bold uppercase tracking-[0.2em] px-2.5 py-1 rounded-full mb-3 bg-accent/5">
-            NEW ACCOUNT
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
-            REGISTER
-          </h2>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1.5">
-            Join ZELIX to save collections & trace purchases
-          </p>
-        </div>
-
-        {/* Error Notification */}
-        {errorMsg && (
-          <div className="bg-red-950/15 border border-red-500/20 text-error text-xs rounded p-4 font-mono">
-            {errorMsg}
-          </div>
-        )}
-
-        {/* Signup Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5 block">Full Name</label>
-            <div className="relative">
-              <input 
-                type="text" 
-                required 
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Alex Mercer"
-                className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded pl-10 pr-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-              />
-              <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+        {step === 'signup' ? (
+          <>
+            {/* Title */}
+            <div className="text-center">
+              <span className="inline-block border border-accent/40 text-accent text-[9px] font-mono font-bold uppercase tracking-[0.2em] px-2.5 py-1 rounded-full mb-3 bg-accent/5">
+                NEW ACCOUNT
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+                REGISTER
+              </h2>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1.5">
+                Join ZELIX to save collections & trace purchases
+              </p>
             </div>
-          </div>
 
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5 block">Email Address</label>
-            <div className="relative">
-              <input 
-                type="email" 
-                required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded pl-10 pr-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-              />
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5 block">Password</label>
-            <div className="relative">
-              <input 
-                type="password" 
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded pl-10 pr-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-              />
-              <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-            </div>
-            <p className="text-[10px] text-muted-foreground font-mono mt-1">Minimum 6 characters required.</p>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={submitting}
-            className="w-full inline-flex items-center justify-center gap-2 h-12 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors disabled:bg-zinc-800 disabled:text-zinc-500 cursor-pointer pt-2"
-          >
-            {submitting ? (
-              'Creating Account...'
-            ) : (
-              <>
-                <UserPlus className="h-4 w-4" />
-                Create Account
-              </>
+            {/* Error Notification */}
+            {errorMsg && (
+              <div className="bg-red-950/15 border border-red-500/20 text-error text-xs rounded p-4 font-mono">
+                {errorMsg}
+              </div>
             )}
-          </button>
-        </form>
 
-        {/* Footer link */}
-        <p className="text-center text-xs text-muted-foreground uppercase tracking-wider font-mono pt-4">
-          Already a member?{' '}
-          <Link href={`/login?redirect=${encodeURIComponent(redirectUrl)}`} className="text-white font-bold hover:underline">
-            Login Now
-          </Link>
-        </p>
+            {/* Signup Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5 block">Full Name</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    required 
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Alex Mercer"
+                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded pl-10 pr-3 py-2.5 focus:outline-none focus:border-white transition-colors"
+                  />
+                  <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5 block">Email Address</label>
+                <div className="relative">
+                  <input 
+                    type="email" 
+                    required 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded pl-10 pr-3 py-2.5 focus:outline-none focus:border-white transition-colors"
+                  />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5 block">Password</label>
+                <div className="relative">
+                  <input 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded pl-10 pr-3 py-2.5 focus:outline-none focus:border-white transition-colors"
+                  />
+                  <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+                <p className="text-[10px] text-muted-foreground font-mono mt-1">Minimum 6 characters required.</p>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={submitting}
+                className="w-full inline-flex items-center justify-center gap-2 h-12 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors disabled:bg-zinc-800 disabled:text-zinc-500 cursor-pointer pt-2"
+              >
+                {submitting ? (
+                  'Creating Account...'
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    Create Account
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Footer link */}
+            <p className="text-center text-xs text-muted-foreground uppercase tracking-wider font-mono pt-4">
+              Already a member?{' '}
+              <Link href={`/login?redirect=${encodeURIComponent(redirectUrl)}`} className="text-white font-bold hover:underline">
+                Login Now
+              </Link>
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Title */}
+            <div className="text-center">
+              <span className="inline-block border border-accent/40 text-accent text-[9px] font-mono font-bold uppercase tracking-[0.2em] px-2.5 py-1 rounded-full mb-3 bg-accent/5">
+                VERIFICATION REQUIRED
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+                ENTER CODE
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                We sent a 6-character code to <span className="text-white font-mono font-semibold">{email}</span>.
+              </p>
+            </div>
+
+            {/* Error Notification */}
+            {errorMsg && (
+              <div className="bg-red-950/15 border border-red-500/20 text-error text-xs rounded p-4 font-mono">
+                {errorMsg}
+              </div>
+            )}
+
+            {/* OTP Form */}
+            <form onSubmit={handleOtpSubmit} className="space-y-6">
+              <div className="flex justify-between gap-2">
+                {otpDigits.map((digit, idx) => (
+                  <input
+                    key={idx}
+                    ref={(el) => { inputRefs.current[idx] = el; }}
+                    type="text"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                    onPaste={idx === 0 ? handleOtpPaste : undefined}
+                    className="w-12 h-14 bg-[#18181b]/50 border border-border text-center text-xl font-bold font-mono text-white rounded focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all"
+                  />
+                ))}
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full inline-flex items-center justify-center gap-2 h-12 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors disabled:bg-zinc-800 disabled:text-zinc-500 cursor-pointer pt-2"
+              >
+                {submitting ? 'Verifying...' : 'Verify & Continue'}
+              </button>
+            </form>
+
+            {/* Resend and back navigation */}
+            <div className="space-y-4 pt-2 text-center text-xs uppercase tracking-wider font-mono">
+              <p className="text-muted-foreground">
+                Didn't receive the code?{' '}
+                {resendCooldown > 0 ? (
+                  <span className="text-zinc-500">Resend in {resendCooldown}s</span>
+                ) : (
+                  <button
+                    onClick={handleResendOtp}
+                    className="text-white font-bold hover:underline cursor-pointer bg-transparent border-none p-0 inline-block align-baseline uppercase"
+                  >
+                    Resend Code
+                  </button>
+                )}
+              </p>
+              
+              <button
+                onClick={() => {
+                  setStep('signup');
+                  setErrorMsg('');
+                  setOtpDigits(Array(6).fill(''));
+                }}
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-white cursor-pointer bg-transparent border-none p-0 uppercase"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Change Email / Go Back
+              </button>
+            </div>
+          </>
+        )}
 
       </div>
     </div>
@@ -171,3 +350,4 @@ export default function SignupPage() {
     </Suspense>
   );
 }
+

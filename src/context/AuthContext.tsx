@@ -17,6 +17,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
+  verifyEmailOtp: (email: string, token: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -177,9 +178,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         mockUsers.push(newProfile);
         localStorage.setItem('zelix_mock_users', JSON.stringify(mockUsers));
-        setUser({ id: newProfile.id, email: newProfile.email });
-        setProfile(newProfile);
-        localStorage.setItem('zelix_mock_session', JSON.stringify(newProfile));
+        
+        // In mock mode with OTP, we don't log them in yet, we let them enter '123456'
+        // But let's temporarily store the pending profile in local storage
+        localStorage.setItem('zelix_mock_pending_user', JSON.stringify(newProfile));
+      }
+      return { error: null };
+    } catch (err: any) {
+      return { error: err as Error };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyEmailOtp = async (email: string, token: string): Promise<{ error: Error | null }> => {
+    setIsLoading(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase!.auth.verifyOtp({
+          email,
+          token,
+          type: 'signup',
+        });
+        if (error) throw error;
+      } else {
+        if (token !== '123456') {
+          throw new Error('Invalid OTP code. Please enter 123456 for mock testing.');
+        }
+        const pendingUserStr = localStorage.getItem('zelix_mock_pending_user');
+        if (pendingUserStr) {
+          const pendingUser = JSON.parse(pendingUserStr);
+          setUser({ id: pendingUser.id, email: pendingUser.email });
+          setProfile(pendingUser);
+          localStorage.setItem('zelix_mock_session', JSON.stringify(pendingUser));
+          localStorage.removeItem('zelix_mock_pending_user');
+        }
       }
       return { error: null };
     } catch (err: any) {
@@ -276,6 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resetPassword,
         updatePassword,
         signInWithGoogle,
+        verifyEmailOtp,
       }}
     >
       {children}
