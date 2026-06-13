@@ -11,6 +11,10 @@ function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Suppress browser-internal abort errors from showing to users
+  const isAbortError = (err: Error | null) =>
+    err !== null && (err.name === 'AbortError' || (err.message || '').toLowerCase().includes('aborted'));
+
   const [step, setStep] = useState<'signup' | 'otp'>('signup');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -49,7 +53,7 @@ function SignupContent() {
 
     const { error } = await signUp(email, password, fullName);
     if (error) {
-      setErrorMsg(error.message || 'Registration failed. Please check inputs.');
+      setErrorMsg(isAbortError(error) ? 'Connection interrupted. Please try again.' : (error.message || 'Registration failed. Please check inputs.'));
       setSubmitting(false);
     } else {
       setStep('otp');
@@ -121,7 +125,7 @@ function SignupContent() {
 
     const { error } = await verifyEmailOtp(email, code);
     if (error) {
-      setErrorMsg(error.message || 'Invalid verification code. Please try again.');
+      setErrorMsg(isAbortError(error) ? 'Connection interrupted. Please try again.' : (error.message || 'Invalid verification code. Please try again.'));
       setSubmitting(false);
     } else {
       router.push(redirectUrl);
@@ -135,7 +139,7 @@ function SignupContent() {
 
     const { error } = await signUp(email, password, fullName);
     if (error) {
-      setErrorMsg(error.message || 'Failed to resend code.');
+      setErrorMsg(isAbortError(error) ? 'Connection interrupted. Please try again.' : (error.message || 'Failed to resend code.'));
     } else {
       setResendCooldown(60);
     }

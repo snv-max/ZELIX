@@ -11,6 +11,10 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Suppress browser-internal abort errors from showing to users
+  const isAbortError = (err: Error | null) =>
+    err !== null && (err.name === 'AbortError' || (err.message || '').toLowerCase().includes('aborted'));
+
   const [activeTab, setActiveTab] = useState<'password' | 'otp'>('password');
   const [step, setStep] = useState<'login' | 'otp_verify' | 'signup_verify'>('login');
   
@@ -44,6 +48,11 @@ function LoginContent() {
 
     const { error } = await signIn(email, password);
     if (error) {
+      if (isAbortError(error)) {
+        setErrorMsg('Connection interrupted. Please try again.');
+        setSubmitting(false);
+        return;
+      }
       const msg = error.message || '';
       if (msg.toLowerCase().includes('confirm') || msg.toLowerCase().includes('verify')) {
         setStep('signup_verify');
@@ -64,7 +73,11 @@ function LoginContent() {
 
     const { error } = await signInWithOtp(email);
     if (error) {
-      setErrorMsg(error.message || 'Failed to send verification code.');
+      if (isAbortError(error)) {
+        setErrorMsg('Connection interrupted. Please try again.');
+      } else {
+        setErrorMsg(error.message || 'Failed to send verification code.');
+      }
       setSubmitting(false);
     } else {
       setStep('otp_verify');
@@ -137,7 +150,7 @@ function LoginContent() {
     if (step === 'signup_verify') {
       const { error } = await verifyEmailOtp(email, code);
       if (error) {
-        setErrorMsg(error.message || 'Invalid code. Please try again.');
+        setErrorMsg(isAbortError(error) ? 'Connection interrupted. Please try again.' : (error.message || 'Invalid code. Please try again.'));
         setSubmitting(false);
       } else {
         router.push(redirectUrl);
@@ -145,7 +158,7 @@ function LoginContent() {
     } else if (step === 'otp_verify') {
       const { error } = await verifyLoginOtp(email, code);
       if (error) {
-        setErrorMsg(error.message || 'Invalid code. Please try again.');
+        setErrorMsg(isAbortError(error) ? 'Connection interrupted. Please try again.' : (error.message || 'Invalid code. Please try again.'));
         setSubmitting(false);
       } else {
         router.push(redirectUrl);
@@ -179,7 +192,7 @@ function LoginContent() {
     setErrorMsg('');
     const { error } = await signInWithGoogle();
     if (error) {
-      setErrorMsg(error.message || 'Google authentication failed.');
+      setErrorMsg(isAbortError(error) ? 'Connection interrupted. Please try again.' : (error.message || 'Google authentication failed.'));
     }
   };
 
