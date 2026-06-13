@@ -4,9 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSignUp } from '@clerk/nextjs';
 import { ShieldCheck, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { useMockAuthHelper } from '@/context/AuthContext';
 
 export default function OTPVerificationPage() {
   const { isLoaded, signUp, setActive } = useSignUp() as any;
+  const mockAuth = useMockAuthHelper();
 
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''));
   const [cooldown, setCooldown] = useState(60);
@@ -110,6 +112,21 @@ export default function OTPVerificationPage() {
       } else {
         // Mock fallback simulation
         console.log('Clerk not active. Simulating OTP code verification.');
+        
+        // Complete mock registration
+        const tempEmail = localStorage.getItem('zelix_temp_email') || 'customer@zelix.com';
+        const tempName = localStorage.getItem('zelix_temp_name') || 'Zelix Member';
+        if (mockAuth) {
+          mockAuth.signInMock(tempEmail, 'customer');
+          if (tempName) {
+            localStorage.setItem('zelix_mock_name', tempName);
+          }
+        }
+        
+        // Clean up temp details
+        localStorage.removeItem('zelix_temp_email');
+        localStorage.removeItem('zelix_temp_name');
+
         setSuccess(true);
       }
     } catch (err: any) {
