@@ -8,7 +8,7 @@ import { mockDb } from '@/lib/mockData';
 import { Order, OrderItem } from '@/types/database.types';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ClipboardList, Calendar, DollarSign, Package, MapPin, ExternalLink, ArrowRight } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, ExternalLink, ArrowRight } from 'lucide-react';
 
 interface OrderWithItems extends Order {
   items: OrderItem[];
@@ -96,10 +96,12 @@ export default function OrdersPage() {
 
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
-      case 'paid':
-        return <span className="bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded">Paid</span>;
+      case 'processing':
+        return <span className="bg-teal-500/10 border border-teal-500/25 text-teal-400 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded">Processing</span>;
       case 'shipped':
         return <span className="bg-blue-500/10 border border-blue-500/25 text-blue-400 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded">Shipped</span>;
+      case 'delivered':
+        return <span className="bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded">Delivered</span>;
       case 'cancelled':
         return <span className="bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded">Cancelled</span>;
       default:
@@ -175,8 +177,7 @@ export default function OrdersPage() {
                   <div>
                     <span className="block text-[10px] uppercase text-zinc-500 mb-1">Total Paid</span>
                     <span className="text-white flex items-center gap-1 font-bold">
-                      <DollarSign className="h-3.5 w-3.5" />
-                      {order.total_amount}
+                      ₹{order.total_amount}
                     </span>
                   </div>
                   <div>
@@ -226,7 +227,7 @@ export default function OrdersPage() {
                             )}
                           </h4>
                           <span className="text-sm font-bold text-white font-mono">
-                            ${item.price * item.quantity}
+                            ₹{item.price * item.quantity}
                           </span>
                         </div>
 

@@ -65,7 +65,7 @@ export default function CartPage() {
           {
             user_id: user.id,
             total_amount: cartTotal,
-            status: 'paid', // Mark paid immediately for mock
+            status: 'processing', // Mark processing immediately for mock
             shipping_address: shippingAddress,
             stripe_session_id: 'mock_sess_' + Math.random().toString(36).substr(2, 9),
           },
@@ -171,7 +171,7 @@ export default function CartPage() {
                         {item.product.name}
                       </Link>
                       <span className="text-sm sm:text-base font-bold text-white font-mono">
-                        ${item.product.price * item.quantity}
+                        ₹{item.product.price * item.quantity}
                       </span>
                     </div>
 
@@ -228,15 +228,15 @@ export default function CartPage() {
             <div className="space-y-4 mb-8 font-mono text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span>${cartTotal}</span>
+                <span>₹{cartTotal}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Shipping</span>
-                <span>{cartTotal >= 200 ? 'FREE' : '$15'}</span>
+                <span>{cartTotal >= 3000 ? 'FREE' : '₹150'}</span>
               </div>
               <div className="border-t border-border pt-4 flex justify-between text-base font-bold text-white">
                 <span>Total Due</span>
-                <span>${cartTotal + (cartTotal >= 200 ? 0 : 15)}</span>
+                <span>₹{cartTotal + (cartTotal >= 3000 ? 0 : 150)}</span>
               </div>
             </div>
 

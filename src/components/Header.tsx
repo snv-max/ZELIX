@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { ShoppingBag, Heart, User as UserIcon, Search, X, Menu, Settings, LogOut, ClipboardList } from 'lucide-react';
+import { ShoppingBag, Heart, User as UserIcon, Search, X, Menu, Settings, LogOut } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();

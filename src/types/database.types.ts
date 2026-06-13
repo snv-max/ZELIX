@@ -33,7 +33,7 @@ export interface Order {
   id: string;
   user_id: string;
   total_amount: number;
-  status: 'pending' | 'paid' | 'shipped' | 'cancelled';
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shipping_address: {
     name: string;
     line1: string;

@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Mail, Key, User as UserIcon, UserPlus, Sparkles } from 'lucide-react';
+import { Mail, Key, User as UserIcon, UserPlus } from 'lucide-react';
 
 function SignupContent() {
   const { signUp, user, isLoading } = useAuth();

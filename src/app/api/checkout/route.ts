@@ -38,29 +38,29 @@ export async function POST(req: Request) {
 
       return {
         price_data: {
-          currency: 'usd',
+          currency: 'inr',
           product_data: {
             name: item.product.name,
             description: variantDesc || item.product.description.substring(0, 100),
             images: item.product.images[0] ? [new URL(item.product.images[0], origin).toString()] : [],
           },
-          unit_amount: Math.round(item.product.price * 100), // Stripe expects cents
+          unit_amount: Math.round(item.product.price * 100), // Stripe expects cents/paise
         },
         quantity: item.quantity,
       };
     });
 
-    // 3. Apply Shipping fee if total cart amount is under $200
+    // 3. Apply Shipping fee if total cart amount is under ₹3000
     const cartTotal = cart.reduce((tot: number, item: any) => tot + item.product.price * item.quantity, 0);
-    if (cartTotal < 200) {
+    if (cartTotal < 3000) {
       lineItems.push({
         price_data: {
-          currency: 'usd',
+          currency: 'inr',
           product_data: {
             name: 'Express Shipping & Handling',
-            description: 'Flat shipping fee for orders under $200',
+            description: 'Flat shipping fee for orders under ₹3000',
           },
-          unit_amount: 1500, // $15.00
+          unit_amount: 15000, // ₹150.00 (15000 paise)
         },
         quantity: 1,
       });

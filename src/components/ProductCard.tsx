@@ -13,7 +13,6 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart, toggleWishlist, isInWishlist } = useCart();
-  const [isHovered, setIsHovered] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
   const favorited = isInWishlist(product.id);
@@ -40,8 +39,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <div 
       className="group relative flex flex-col justify-between h-full bg-[#0d0d11] border border-border rounded overflow-hidden transition-all duration-300 hover:border-white/25"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       
       {/* Product Image Panel */}
@@ -109,7 +106,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               </Link>
             </h3>
             <span className="text-sm font-bold text-white font-mono whitespace-nowrap">
-              ${product.price}
+              ₹{product.price}
             </span>
           </div>
           

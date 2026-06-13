@@ -118,7 +118,7 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
                 {product.name}
               </h1>
               <span className="text-2xl sm:text-3xl font-black text-white font-mono">
-                ${product.price}
+                ₹{product.price}
               </span>
             </div>
 

@@ -50,7 +50,7 @@ export async function POST(req: Request) {
           .insert({
             user_id: userId,
             total_amount: totalAmount,
-            status: 'paid',
+            status: 'processing',
             shipping_address: shippingAddress,
             stripe_session_id: session.id,
           })
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
           {
             user_id: userId,
             total_amount: totalAmount,
-            status: 'paid',
+            status: 'processing',
             shipping_address: shippingAddress,
             stripe_session_id: session.id,
           },

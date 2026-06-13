@@ -49,7 +49,7 @@ create table public.orders (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references public.profiles on delete cascade not null,
   total_amount numeric not null check (total_amount >= 0),
-  status text not null default 'pending' check (status in ('pending', 'paid', 'shipped', 'cancelled')),
+  status text not null default 'pending' check (status in ('pending', 'processing', 'shipped', 'delivered', 'cancelled')),
   shipping_address jsonb not null,
   stripe_session_id text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null

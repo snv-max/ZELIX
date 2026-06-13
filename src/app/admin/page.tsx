@@ -10,7 +10,7 @@ import { Product, Category, Order, Profile } from '@/types/database.types';
 import { LayoutDashboard, ShoppingBag, FolderOpen, ClipboardList, Users, ShieldAlert, Plus, Edit2, Trash2, CheckCircle2, Package, RefreshCw, BarChart2, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
 
 export default function AdminDashboardPage() {
-  const { user, profile, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
   // Active Tab
@@ -42,7 +42,7 @@ export default function AdminDashboardPage() {
   const [newCatDesc, setNewCatDesc] = useState('');
 
   // Fetch all admin data
-  const loadAdminData = async () => {
+  const loadAdminData = React.useCallback(async () => {
     if (!user || !isAdmin) return;
     setLoading(true);
     try {
@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, isAdmin]);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) {
@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
     if (user && isAdmin) {
       loadAdminData();
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, loadAdminData]);
 
   // Authorization Shield
   if (authLoading) {
@@ -261,7 +261,7 @@ export default function AdminDashboardPage() {
   };
 
   // Overview metrics calculations
-  const totalRevenue = orders.filter(o => o.status === 'paid' || o.status === 'shipped').reduce((sum, o) => sum + o.total_amount, 0);
+  const totalRevenue = orders.filter(o => o.status !== 'pending' && o.status !== 'cancelled').reduce((sum, o) => sum + o.total_amount, 0);
   const outOfStockItems = products.filter(p => p.inventory === 0).length;
 
   return (
@@ -334,7 +334,7 @@ export default function AdminDashboardPage() {
                           <span className="text-[10px] font-mono uppercase tracking-widest">Total Sales</span>
                           <DollarSign className="h-4 w-4 text-accent" />
                         </div>
-                        <h3 className="text-2xl font-black text-white font-mono">${totalRevenue}</h3>
+                        <h3 className="text-2xl font-black text-white font-mono">₹{totalRevenue}</h3>
                         <p className="text-[10px] font-mono text-zinc-500 mt-1.5 uppercase">Paid & Shipped Orders</p>
                       </div>
 
@@ -466,7 +466,7 @@ export default function AdminDashboardPage() {
                               <tr key={prod.id} className="hover:bg-white/5 transition-colors">
                                 <td className="py-3.5 px-2 font-bold text-white max-w-[180px] truncate">{prod.name}</td>
                                 <td className="py-3.5 px-2 text-muted-foreground text-xs uppercase tracking-wider">{cat?.name || 'Unassigned'}</td>
-                                <td className="py-3.5 px-2 font-mono text-white">${prod.price}</td>
+                                <td className="py-3.5 px-2 font-mono text-white">₹{prod.price}</td>
                                 <td className="py-3.5 px-2 font-mono">
                                   <span className={prod.inventory === 0 ? 'text-error font-bold' : prod.inventory < 10 ? 'text-accent font-bold animate-pulse' : 'text-zinc-300'}>
                                     {prod.inventory} pcs
@@ -599,7 +599,7 @@ export default function AdminDashboardPage() {
                                   <span>Customer: <strong className="text-white">{cust?.full_name || ord.shipping_address.name || 'Anonymous'}</strong></span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-white font-bold">${ord.total_amount}</span>
+                                  <span className="text-white font-bold">₹{ord.total_amount}</span>
                                   
                                   {/* Change status dropdown */}
                                   <select
@@ -608,8 +608,9 @@ export default function AdminDashboardPage() {
                                     className="bg-zinc-950 border border-border text-[10px] font-mono font-bold text-white rounded px-2 py-1 focus:outline-none cursor-pointer"
                                   >
                                     <option value="pending">Pending</option>
-                                    <option value="paid">Paid</option>
+                                    <option value="processing">Processing</option>
                                     <option value="shipped">Shipped</option>
+                                    <option value="delivered">Delivered</option>
                                     <option value="cancelled">Cancelled</option>
                                   </select>
                                 </div>
@@ -706,7 +707,7 @@ export default function AdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Price ($ USD)</label>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Price (₹ INR)</label>
                   <input 
                     type="number" 
                     required 
