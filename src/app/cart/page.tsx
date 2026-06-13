@@ -9,7 +9,6 @@ import { useAuth } from '@/context/AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
 import { Trash2, ShoppingBag, Plus, Minus, CreditCard, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { mockDb } from '@/lib/mockData';
-import { sendOrderConfirmationEmail } from '@/lib/email';
 
 export default function CartPage() {
   const router = useRouter();
@@ -73,7 +72,7 @@ export default function CartPage() {
           orderItems
         );
 
-        // Trigger order confirmation email (async)
+        // Trigger order confirmation email via API endpoint (async)
         const orderForEmail = {
           ...mockOrder,
           items: cart.map(item => ({
@@ -87,7 +86,14 @@ export default function CartPage() {
             product: item.product
           }))
         };
-        sendOrderConfirmationEmail(orderForEmail as any, shippingAddress.email || user.email || '');
+        fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order: orderForEmail,
+            customerEmail: shippingAddress.email || user.email || '',
+          }),
+        }).catch(err => console.error('Failed to trigger confirmation email:', err));
 
         // Clear local cart
         clearCart();

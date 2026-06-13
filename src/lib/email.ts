@@ -1,10 +1,32 @@
 import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { Order, OrderItem } from '@/types/database.types';
 
+// Amazon SES SMTP credentials
+const smtpHost = process.env.SMTP_HOST || '';
+const smtpPort = Number(process.env.SMTP_PORT || '587');
+const smtpUser = process.env.SMTP_USER || '';
+const smtpPassword = process.env.SMTP_PASSWORD || '';
+const smtpFrom = process.env.SMTP_FROM || 'ZELIX Apparel <orders@yourdomain.com>';
+
+// Resend credentials
 const resendApiKey = process.env.RESEND_API_KEY || '';
 
-// Initialize Resend client only if API key is present
+// Initialize Resend client if key is present
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
+
+// Initialize Nodemailer transporter if SMTP settings are present
+const transporter = smtpHost && smtpUser && smtpPassword
+  ? nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465, // true for 465, false for other ports
+      auth: {
+        user: smtpUser,
+        pass: smtpPassword,
+      },
+    })
+  : null;
 
 interface OrderWithItems extends Order {
   items: OrderItem[];
@@ -122,29 +144,43 @@ export async function sendOrderConfirmationEmail(
       </div>
     `;
 
-    if (!resend) {
-      console.log('--- [MOCK EMAIL CONFIRMATION] ---');
-      console.log(`To: ${customerEmail}`);
-      console.log(`Subject: Order Confirmed - ZELIX`);
-      console.log(`Content:\nTotal Paid: ₹${order.total_amount}\nReference: ${order.id}`);
-      console.log('----------------------------------');
-      return { success: true, id: 'mock_email_sent_id_' + Math.random().toString(36).substr(2, 9) };
+    // 1. Priority: Amazon SES (SMTP / Nodemailer)
+    if (transporter) {
+      const info = await transporter.sendMail({
+        from: smtpFrom,
+        to: customerEmail,
+        subject: `ZELIX - Order Confirmed #${order.id.substring(0, 8).toUpperCase()}`,
+        html: emailHtml,
+      });
+      console.log(`Order confirmation email sent successfully via Amazon SES: ${info.messageId}`);
+      return { success: true, id: info.messageId };
     }
 
-    const response = await resend.emails.send({
-      from: 'ZELIX Apparel <orders@yourdomain.com>',
-      to: customerEmail,
-      subject: `ZELIX - Order Confirmed #${order.id.substring(0, 8).toUpperCase()}`,
-      html: emailHtml,
-    });
+    // 2. Secondary: Resend API Client
+    if (resend) {
+      const response = await resend.emails.send({
+        from: 'ZELIX Apparel <orders@yourdomain.com>',
+        to: customerEmail,
+        subject: `ZELIX - Order Confirmed #${order.id.substring(0, 8).toUpperCase()}`,
+        html: emailHtml,
+      });
 
-    if (response.error) {
-      console.error('Resend API error sending email:', response.error);
-      return { success: false, error: response.error };
+      if (response.error) {
+        console.error('Resend API error sending email:', response.error);
+        return { success: false, error: response.error };
+      }
+
+      console.log(`Order confirmation email sent successfully via Resend: ${response.data?.id}`);
+      return { success: true, id: response.data?.id };
     }
 
-    console.log(`Order confirmation email sent successfully via Resend: ${response.data?.id}`);
-    return { success: true, id: response.data?.id };
+    // 3. Fallback: Local Console Logging
+    console.log('--- [MOCK EMAIL CONFIRMATION] ---');
+    console.log(`To: ${customerEmail}`);
+    console.log(`Subject: Order Confirmed - ZELIX`);
+    console.log(`Content:\nTotal Paid: ₹${order.total_amount}\nReference: ${order.id}`);
+    console.log('----------------------------------');
+    return { success: true, id: 'mock_email_sent_id_' + Math.random().toString(36).substr(2, 9) };
   } catch (err: any) {
     console.error('Failed to send order confirmation email:', err);
     return { success: false, error: err };
