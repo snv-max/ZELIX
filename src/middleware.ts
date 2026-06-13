@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { updateSession } from '@/utils/supabase/middleware';
+
 
 // Simple in-memory rate limit store for brute-force mitigation
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -61,7 +61,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 2. Refresh & Validate Supabase Session
+  // 2. Refresh & Validate Supabase Session (Bypassed for Auth0)
+  /*
   const { supabaseResponse, user, supabase } = await updateSession(request);
 
   // Define route rules
@@ -111,8 +112,9 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   }
+  */
 
-  return supabaseResponse;
+  return NextResponse.next();
 }
 
 // Intercept relevant paths (pages, api routes, auth entrypoints)

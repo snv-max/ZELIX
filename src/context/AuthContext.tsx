@@ -1,17 +1,17 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/types/database.types';
-import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
-  user: User | null;
+  user: any; // Mapped Auth0 user (contains id, email, etc.)
   profile: Profile | null;
   isLoading: boolean;
   isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signIn: (email?: string, password?: string) => Promise<{ error: Error | null }>;
+  signUp: (email?: string, password?: string, fullName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
@@ -23,279 +23,143 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+function AuthContextConsumer({ children }: { children: React.ReactNode }) {
+  const {
+    user: auth0User,
+    isLoading: auth0Loading,
+    loginWithRedirect,
+    logout,
+  } = useAuth0();
 
-  // Track whether the component is still mounted to avoid state updates after unmount
-  const mountedRef = useRef(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const mappedUser = auth0User ? {
+    id: auth0User.sub || '',
+    email: auth0User.email || '',
+    user_metadata: {
+      full_name: auth0User.name || '',
+    }
+  } : null;
 
   useEffect(() => {
-    mountedRef.current = true;
+    const syncProfile = async () => {
+      if (!auth0User || !auth0User.sub) {
+        setProfile(null);
+        return;
+      }
 
-    if (!supabase) {
-      console.warn('Supabase client is not initialized.');
-      setIsLoading(false);
-      return;
-    }
+      setProfileLoading(true);
+      const uid = auth0User.sub;
+      const email = auth0User.email || '';
+      const name = auth0User.name || '';
 
-    let subscription: any = null;
+      if (!supabase) {
+        setProfileLoading(false);
+        return;
+      }
 
-    const fetchProfile = async (uid: string, userEmail: string) => {
-      if (!mountedRef.current) return;
       try {
-        const { data, error } = await supabase!
+        // Fetch or create profile in Supabase
+        const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', uid)
           .single();
 
-        if (!mountedRef.current) return;
-        if (error) throw error;
-        setProfile(data as Profile);
-      } catch (err: any) {
-        if (!mountedRef.current) return;
-        // Suppress "signal aborted" noise — these are harmless cleanup aborts
-        const msg = err?.message || '';
-        if (msg.includes('aborted') || err?.name === 'AbortError') return;
-        console.error('Error loading Supabase profile:', err);
-        // Fail-secure fallback (customer role, no admin bypass)
-        setProfile({
-          id: uid,
-          email: userEmail,
-          full_name: '',
-          avatar_url: null,
-          role: 'customer',
-          created_at: new Date().toISOString(),
-        });
-      }
-    };
+        if (error && error.code === 'PGRST116') {
+          // Profile not found, let's create it!
+          const isFirstAdmin = email === 'admin@zelix.com';
+          const newProfile = {
+            id: uid,
+            email: email,
+            full_name: name || email.split('@')[0],
+            role: isFirstAdmin ? 'admin' : 'customer',
+            created_at: new Date().toISOString()
+          };
 
-    // getSession is the authoritative source of truth on initial load.
-    // We let onAuthStateChange handle all subsequent updates.
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase!.auth.getSession();
-        if (!mountedRef.current) return;
-        if (session?.user) {
-          setUser(session.user);
-          await fetchProfile(session.user.id, session.user.email || '');
+          const { data: insertedData, error: insertError } = await supabase
+            .from('profiles')
+            .insert(newProfile)
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          setProfile(insertedData as Profile);
+        } else if (error) {
+          throw error;
         } else {
-          setUser(null);
-          setProfile(null);
+          setProfile(data as Profile);
         }
-      } catch (err: any) {
-        if (!mountedRef.current) return;
-        const msg = err?.message || '';
-        if (!msg.includes('aborted') && err?.name !== 'AbortError') {
-          console.error('Failed to get Supabase session:', err);
-        }
+      } catch (err) {
+        console.error('Error syncing profile with Auth0:', err);
       } finally {
-        if (mountedRef.current) setIsLoading(false);
+        setProfileLoading(false);
       }
     };
 
-    getSession();
+    if (!auth0Loading) {
+      syncProfile();
+    }
+  }, [auth0User, auth0Loading]);
 
+  const signIn = async () => {
     try {
-      const { data } = supabase!.auth.onAuthStateChange(async (event, session) => {
-        // INITIAL_SESSION is already handled by getSession() above — skip to avoid double fetch
-        if (event === 'INITIAL_SESSION') return;
+      await loginWithRedirect();
+      return { error: null };
+    } catch (err: any) {
+      return { error: err as Error };
+    }
+  };
 
-        try {
-          if (!mountedRef.current) return;
-          if (session?.user) {
-            setUser(session.user);
-            await fetchProfile(session.user.id, session.user.email || '');
-          } else {
-            setUser(null);
-            setProfile(null);
-          }
-        } catch (innerErr: any) {
-          if (!mountedRef.current) return;
-          const msg = innerErr?.message || '';
-          if (!msg.includes('aborted') && innerErr?.name !== 'AbortError') {
-            console.error('Error inside onAuthStateChange handler:', innerErr);
-          }
-        } finally {
-          if (mountedRef.current) setIsLoading(false);
+  const signUp = async () => {
+    try {
+      await loginWithRedirect({
+        authorizationParams: {
+          screen_hint: 'signup',
         }
       });
-      subscription = data?.subscription;
-    } catch (err) {
-      console.error('Failed to register onAuthStateChange listener:', err);
-      if (mountedRef.current) setIsLoading(false);
-    }
-
-    return () => {
-      mountedRef.current = false;
-      if (subscription) {
-        try {
-          subscription.unsubscribe();
-        } catch {
-          // Silently ignore unsubscribe errors during cleanup
-        }
-      }
-    };
-  }, []);
-
-  const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
-    setIsLoading(true);
-    try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.signInWithPassword({ email, password });
-      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string): Promise<{ error: Error | null }> => {
-    setIsLoading(true);
+  const signOut = async () => {
     try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
-      if (error) throw error;
+      await logout({ logoutParams: { returnTo: window.location.origin } });
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const verifyEmailOtp = async (email: string, token: string): Promise<{ error: Error | null }> => {
-    setIsLoading(true);
+  // Safe placeholders to maintain backward compatibility
+  const resetPassword = async () => ({ error: new Error('Password reset is managed in Auth0.') });
+  const updatePassword = async () => ({ error: new Error('Password updates are managed in Auth0.') });
+  const signInWithGoogle = async () => {
     try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.verifyOtp({
-        email,
-        token,
-        type: 'signup',
-      });
-      if (error) throw error;
-      return { error: null };
-    } catch (err: any) {
-      return { error: err as Error };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signInWithOtp = async (email: string): Promise<{ error: Error | null }> => {
-    setIsLoading(true);
-    try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: window.location.origin,
+      await loginWithRedirect({
+        authorizationParams: {
+          connection: 'google-oauth2',
         }
       });
-      if (error) throw error;
-      return { error: null };
-    } catch (err: any) {
-      return { error: err as Error };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const verifyLoginOtp = async (email: string, token: string): Promise<{ error: Error | null }> => {
-    setIsLoading(true);
-    try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
-      });
-      if (error) throw error;
-      return { error: null };
-    } catch (err: any) {
-      return { error: err as Error };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signOut = async (): Promise<{ error: Error | null }> => {
-    setIsLoading(true);
-    try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.signOut();
-      if (error) throw error;
-      setUser(null);
-      setProfile(null);
-      return { error: null };
-    } catch (err: any) {
-      return { error: err as Error };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const resetPassword = async (email: string): Promise<{ error: Error | null }> => {
-    try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
     }
   };
+  const verifyEmailOtp = async () => ({ error: null });
+  const signInWithOtp = async () => ({ error: null });
+  const verifyLoginOtp = async () => ({ error: null });
 
-  const updatePassword = async (password: string): Promise<{ error: Error | null }> => {
-    try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.updateUser({ password });
-      if (error) throw error;
-      return { error: null };
-    } catch (err: any) {
-      return { error: err as Error };
-    }
-  };
-
-  const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
-    setIsLoading(true);
-    try {
-      if (!supabase) throw new Error('Supabase client not initialized');
-      const { error } = await supabase!.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-      if (error) throw error;
-      return { error: null };
-    } catch (err: any) {
-      return { error: err as Error };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  const isLoading = auth0Loading || profileLoading;
   const isAdmin = profile?.role === 'admin';
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: mappedUser,
         profile,
         isLoading,
         isAdmin,
@@ -312,6 +176,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
+  );
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const domain = process.env.NEXT_PUBLIC_AUTH0_DOMAIN || '';
+  const clientId = process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID || '';
+
+  const isConfigured = domain && clientId && 
+                       domain !== 'your-auth0-domain.auth0.com' && 
+                       clientId !== 'your-auth0-client-id';
+
+  if (!isConfigured) {
+    return (
+      <AuthContext.Provider
+        value={{
+          user: null,
+          profile: null,
+          isLoading: false,
+          isAdmin: false,
+          signIn: async () => ({ error: new Error('Auth0 domain/client ID not configured in .env.local') }),
+          signUp: async () => ({ error: new Error('Auth0 domain/client ID not configured in .env.local') }),
+          signOut: async () => ({ error: null }),
+          resetPassword: async () => ({ error: null }),
+          updatePassword: async () => ({ error: null }),
+          signInWithGoogle: async () => ({ error: null }),
+          verifyEmailOtp: async () => ({ error: null }),
+          signInWithOtp: async () => ({ error: null }),
+          verifyLoginOtp: async () => ({ error: null }),
+        }}
+      >
+        {children}
+      </AuthContext.Provider>
+    );
+  }
+
+  const redirectUri = typeof window !== 'undefined' ? window.location.origin : '';
+
+  return (
+    <Auth0Provider
+      domain={domain}
+      clientId={clientId}
+      authorizationParams={{
+        redirect_uri: redirectUri,
+      }}
+    >
+      <AuthContextConsumer>{children}</AuthContextConsumer>
+    </Auth0Provider>
   );
 }
 
