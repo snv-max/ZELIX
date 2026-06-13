@@ -1,13 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Profile } from '@/types/database.types';
-import { MOCK_ADMIN_USER, MOCK_CUSTOMER_USER } from '@/lib/mockData';
 import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
-  user: User | { id: string; email: string } | null;
+  user: User | null;
   profile: Profile | null;
   isLoading: boolean;
   isAdmin: boolean;
@@ -25,132 +24,82 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | { id: string; email: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load Mock User helper
-  const loadMockUser = (email: string) => {
-    if (email === MOCK_ADMIN_USER.email) {
-      setUser({ id: MOCK_ADMIN_USER.id, email: MOCK_ADMIN_USER.email });
-      setProfile(MOCK_ADMIN_USER);
-      localStorage.setItem('zelix_mock_session', JSON.stringify(MOCK_ADMIN_USER));
-    } else {
-      // Find or create in local users list
-      const mockUsers = JSON.parse(localStorage.getItem('zelix_mock_users') || '[]');
-      let existing = mockUsers.find((u: Profile) => u.email === email);
-      if (!existing) {
-        existing = {
-          id: 'usr-' + Math.random().toString(36).substr(2, 9),
-          email: email,
-          full_name: email.split('@')[0],
+  useEffect(() => {
+    if (!supabase) {
+      console.warn('Supabase client is not initialized.');
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchProfile = async (uid: string, userEmail: string) => {
+      try {
+        const { data, error } = await supabase!
+          .from('profiles')
+          .select('*')
+          .eq('id', uid)
+          .single();
+
+        if (error) throw error;
+        setProfile(data as Profile);
+      } catch (err) {
+        console.error('Error loading Supabase profile:', err);
+        // Fail secure fallback (customer role, no admin bypass)
+        setProfile({
+          id: uid,
+          email: userEmail,
+          full_name: '',
           avatar_url: null,
           role: 'customer',
           created_at: new Date().toISOString(),
-        };
-        mockUsers.push(existing);
-        localStorage.setItem('zelix_mock_users', JSON.stringify(mockUsers));
+        });
       }
-      setUser({ id: existing.id, email: existing.email });
-      setProfile(existing);
-      localStorage.setItem('zelix_mock_session', JSON.stringify(existing));
-    }
-  };
+    };
 
-  useEffect(() => {
-    if (isSupabaseConfigured && supabase) {
-      // 1. Supabase Authentication Setup
-      const fetchProfile = async (uid: string) => {
-        try {
-          const { data, error } = await supabase!
-            .from('profiles')
-            .select('*')
-            .eq('id', uid)
-            .single();
-
-          if (error) throw error;
-          setProfile(data as Profile);
-        } catch (err) {
-          console.error('Error loading Supabase profile:', err);
-          // Fallback just in case profile isn't generated yet
-          setProfile({
-            id: uid,
-            email: user?.email || '',
-            full_name: '',
-            avatar_url: null,
-            role: 'customer',
-            created_at: new Date().toISOString(),
-          });
-        }
-      };
-
-      const getSession = async () => {
+    const getSession = async () => {
+      try {
         const { data: { session } } = await supabase!.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          await fetchProfile(session.user.id);
+          await fetchProfile(session.user.id, session.user.email || '');
         } else {
           setUser(null);
           setProfile(null);
         }
+      } catch (err) {
+        console.error('Failed to get Supabase session:', err);
+      } finally {
         setIsLoading(false);
-      };
+      }
+    };
 
-      getSession();
+    getSession();
 
-      const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          await fetchProfile(session.user.id);
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
-        setIsLoading(false);
-      });
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    } else {
-      // 2. Mock Authentication Setup
-      if (typeof window !== 'undefined') {
-        const activeSession = localStorage.getItem('zelix_mock_session');
-        if (activeSession) {
-          const prof = JSON.parse(activeSession) as Profile;
-          setUser({ id: prof.id, email: prof.email });
-          setProfile(prof);
-        }
+    const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        await fetchProfile(session.user.id, session.user.email || '');
+      } else {
+        setUser(null);
+        setProfile(null);
       }
       setIsLoading(false);
-    }
-  }, [user?.email]);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else {
-        // Mock authentication check
-        const mockUsers = JSON.parse(localStorage.getItem('zelix_mock_users') || '[]');
-        const existing = mockUsers.find((u: Profile) => u.email === email);
-        
-        // Demo credential bypass
-        if (email === MOCK_ADMIN_USER.email || email === MOCK_CUSTOMER_USER.email) {
-          loadMockUser(email);
-        } else if (existing) {
-          const mockCreds = JSON.parse(localStorage.getItem('zelix_mock_credentials') || '{}');
-          const storedPassword = mockCreds[email];
-          if (storedPassword && storedPassword !== password) {
-            throw new Error('Invalid password for this account. Please try again.');
-          }
-          loadMockUser(email);
-        } else {
-          throw new Error('User does not exist. Please register first.');
-        }
-      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
@@ -162,49 +111,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, fullName: string): Promise<{ error: Error | null }> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-            },
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
           },
-        });
-        if (error) throw error;
-      } else {
-        // Mock Register
-        const mockUsers = JSON.parse(localStorage.getItem('zelix_mock_users') || '[]');
-        const existing = mockUsers.find((u: Profile) => u.email === email);
-        if (existing) {
-          throw new Error('User already exists');
-        }
-
-        // Determine if first user ever (make admin for local ease)
-        const isFirst = mockUsers.length === 0 && email !== MOCK_ADMIN_USER.email;
-
-        const newProfile: Profile = {
-          id: 'usr-' + Math.random().toString(36).substr(2, 9),
-          email: email,
-          full_name: fullName,
-          avatar_url: null,
-          role: isFirst ? 'admin' : 'customer',
-          created_at: new Date().toISOString(),
-        };
-
-        mockUsers.push(newProfile);
-        localStorage.setItem('zelix_mock_users', JSON.stringify(mockUsers));
-        
-        // Save credentials mapping for login verification
-        const mockCreds = JSON.parse(localStorage.getItem('zelix_mock_credentials') || '{}');
-        mockCreds[email] = password;
-        localStorage.setItem('zelix_mock_credentials', JSON.stringify(mockCreds));
-
-        // In mock mode with OTP, we don't log them in yet, we let them enter '123456'
-        // But let's temporarily store the pending profile in local storage
-        localStorage.setItem('zelix_mock_pending_user', JSON.stringify(newProfile));
-      }
+        },
+      });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
@@ -216,26 +133,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyEmailOtp = async (email: string, token: string): Promise<{ error: Error | null }> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.verifyOtp({
-          email,
-          token,
-          type: 'signup',
-        });
-        if (error) throw error;
-      } else {
-        if (token !== '123456') {
-          throw new Error('Invalid OTP code. Please enter 123456 for mock testing.');
-        }
-        const pendingUserStr = localStorage.getItem('zelix_mock_pending_user');
-        if (pendingUserStr) {
-          const pendingUser = JSON.parse(pendingUserStr);
-          setUser({ id: pendingUser.id, email: pendingUser.email });
-          setProfile(pendingUser);
-          localStorage.setItem('zelix_mock_session', JSON.stringify(pendingUser));
-          localStorage.removeItem('zelix_mock_pending_user');
-        }
-      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup',
+      });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
@@ -247,24 +151,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithOtp = async (email: string): Promise<{ error: Error | null }> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: window.location.origin,
-          }
-        });
-        if (error) throw error;
-      } else {
-        // Check if user exists in mock database (except demo accounts)
-        const mockUsers = JSON.parse(localStorage.getItem('zelix_mock_users') || '[]');
-        const existing = mockUsers.find((u: Profile) => u.email === email);
-        if (!existing && email !== MOCK_CUSTOMER_USER.email && email !== MOCK_ADMIN_USER.email) {
-          throw new Error('User does not exist. Please register first.');
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin,
         }
-        console.log(`Mock OTP login requested for: ${email}`);
-        localStorage.setItem('zelix_mock_pending_otp_email', email);
-      }
+      });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
@@ -276,20 +170,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyLoginOtp = async (email: string, token: string): Promise<{ error: Error | null }> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.verifyOtp({
-          email,
-          token,
-          type: 'email',
-        });
-        if (error) throw error;
-      } else {
-        if (token !== '123456') {
-          throw new Error('Invalid OTP code. Please enter 123456 for mock testing.');
-        }
-        loadMockUser(email);
-        localStorage.removeItem('zelix_mock_pending_otp_email');
-      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
@@ -301,12 +188,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async (): Promise<{ error: Error | null }> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.signOut();
-        if (error) throw error;
-      } else {
-        localStorage.removeItem('zelix_mock_session');
-      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.signOut();
+      if (error) throw error;
       setUser(null);
       setProfile(null);
       return { error: null };
@@ -319,14 +203,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPassword = async (email: string): Promise<{ error: Error | null }> => {
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/reset-password`,
-        });
-        if (error) throw error;
-      } else {
-        console.log(`Mock reset password email requested for: ${email}`);
-      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
@@ -335,12 +216,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updatePassword = async (password: string): Promise<{ error: Error | null }> => {
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.updateUser({ password });
-        if (error) throw error;
-      } else {
-        console.log(`Mock password update successfully updated to: ${password}`);
-      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.updateUser({ password });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };
@@ -350,18 +228,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase!.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/`,
-          },
-        });
-        if (error) throw error;
-      } else {
-        // Mock Google login
-        loadMockUser(MOCK_CUSTOMER_USER.email);
-      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase!.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
       return { error: null };
     } catch (err: any) {
       return { error: err as Error };

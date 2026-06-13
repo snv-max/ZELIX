@@ -378,7 +378,7 @@ export default function AccountPage() {
                 <div className="border border-border bg-[#0d0d11]/40 p-4 rounded flex items-center gap-2 text-xs font-mono text-muted-foreground">
                   <ShieldCheck className="h-4.5 w-4.5 text-white shrink-0" />
                   <span>
-                    Your session is secured with {isSupabaseConfigured ? 'Supabase Auth.' : 'local browser mock session storage.'}
+                    Your session is secured with Supabase Auth.
                   </span>
                 </div>
 

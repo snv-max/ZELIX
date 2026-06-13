@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { createClient } from '@/utils/supabase/server';
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
 
@@ -10,8 +11,16 @@ const stripe = stripeSecret ? new Stripe(stripeSecret, {
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required' }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { cart, shippingAddress, userId } = body;
+    const { cart, shippingAddress } = body;
+    const authenticatedUserId = user.id;
 
     if (!cart || cart.length === 0) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
@@ -75,7 +84,7 @@ export async function POST(req: Request) {
       cancel_url: `${origin}/cart`,
       customer_email: shippingAddress.email,
       metadata: {
-        userId,
+        userId: authenticatedUserId,
         shippingAddress: JSON.stringify(shippingAddress),
         cart: JSON.stringify(cart.map((item: any) => ({
           productId: item.product.id,

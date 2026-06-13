@@ -1,4 +1,4 @@
-import { Product, Category, Profile, Order, OrderItem } from '@/types/database.types';
+import { Product, Category, Order, OrderItem } from '@/types/database.types';
 
 export const MOCK_CATEGORIES: Category[] = [
   {
@@ -646,20 +646,4 @@ class MockDatabase {
 }
 
 export const mockDb = new MockDatabase();
-export const MOCK_ADMIN_USER: Profile = {
-  id: 'usr-admin',
-  email: 'admin@zelix.com',
-  full_name: 'ZELIX Administrator',
-  avatar_url: null,
-  role: 'admin',
-  created_at: new Date().toISOString(),
-};
 
-export const MOCK_CUSTOMER_USER: Profile = {
-  id: 'usr-customer',
-  email: 'customer@zelix.com',
-  full_name: 'Alex Mercer',
-  avatar_url: null,
-  role: 'customer',
-  created_at: new Date().toISOString(),
-};

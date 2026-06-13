@@ -227,7 +227,7 @@ export default function ProfilePage() {
             <div className="border border-border bg-[#0d0d11]/40 p-4 rounded flex items-center gap-2 text-xs font-mono text-muted-foreground">
               <ShieldCheck className="h-4.5 w-4.5 text-white shrink-0" />
               <span>
-                Your session is fully secured with {isSupabaseConfigured ? 'Supabase authentic security layer.' : 'local browser-stored active sessions.'}
+                Your session is fully secured with Supabase authentic security layer.
               </span>
             </div>
 

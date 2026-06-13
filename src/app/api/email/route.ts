@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { sendOrderConfirmationEmail } from '@/lib/email';
+import { createClient } from '@/utils/supabase/server';
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { order, customerEmail } = body;
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Mail, Key, Sparkles, LogIn, ArrowLeft } from 'lucide-react';
+import { Mail, Key, LogIn, ArrowLeft } from 'lucide-react';
 
 function LoginContent() {
   const { signIn, signInWithOtp, verifyLoginOtp, verifyEmailOtp, signInWithGoogle, user, isLoading } = useAuth();
@@ -49,7 +49,7 @@ function LoginContent() {
         setStep('signup_verify');
         setSubmitting(false);
       } else {
-        setErrorMsg(msg || 'Invalid email or password credentials.');
+        setErrorMsg('Invalid email or password.');
         setSubmitting(false);
       }
     } else {
@@ -340,22 +340,6 @@ function LoginContent() {
                 Register Account
               </Link>
             </p>
-
-            <div className="border border-border/60 bg-[#0d0d11]/40 p-4 rounded text-[10px] font-mono text-muted-foreground leading-relaxed">
-              <div className="flex gap-2 items-start">
-                <Sparkles className="h-4 w-4 text-white shrink-0" />
-                <div>
-                  <p className="font-bold text-white mb-0.5 uppercase tracking-wide">Demo Accounts:</p>
-                  <p className="mb-1">
-                    • Customer: <code>customer@zelix.com</code> (any password)<br />
-                    • Admin Dashboard: <code>admin@zelix.com</code> (any password)
-                  </p>
-                  <p className="text-[9px] text-zinc-500">
-                    * For newly registered accounts (mock mode), you must now type the exact password you chose during registration.
-                  </p>
-                </div>
-              </div>
-            </div>
           </>
         ) : (
           <>
