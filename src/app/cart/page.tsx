@@ -1,139 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useUser } from '@clerk/nextjs';
-import { loadStripe } from '@stripe/stripe-js';
 import { Trash2, ShoppingBag, Plus, Minus, CreditCard, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
-import { mockDb } from '@/lib/mockData';
 
 export default function CartPage() {
   const router = useRouter();
-  const { cart, removeFromCart, updateCartQuantity, cartTotal, clearCart } = useCart();
-  const { user, isLoaded } = useUser();
+  const { cart, removeFromCart, updateCartQuantity, cartTotal } = useCart();
+  const { user } = useUser();
 
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState({
-    name: '',
-    line1: '',
-    line2: '',
-    city: '',
-    state: '',
-    postal_code: '',
-    country: 'US',
-    email: '',
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setShippingAddress(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isLoaded) return;
+  const handleProceedToCheckout = () => {
     if (!user) {
-      alert('Please log in or register to complete your purchase.');
-      router.push('/login?redirect=/cart');
-      return;
-    }
-
-    if (cart.length === 0) return;
-
-    setIsCheckingOut(true);
-
-    try {
-      // Check if Stripe is configured by testing env or requesting endpoint
-      const stripeSecretAvailable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-      
-      if (!stripeSecretAvailable) {
-        // Stripe credentials not set: process as a Mock Order
-        console.log('Stripe Publishable Key not set. Processing as simulated mock checkout.');
-        
-        // Create Mock Order
-        const orderItems = cart.map(item => ({
-          product_id: item.product.id,
-          quantity: item.quantity,
-          price: item.product.price,
-          size: item.size,
-          color: item.color,
-        }));
-
-        const mockOrder = mockDb.createOrder(
-          {
-            user_id: user.id,
-            total_amount: cartTotal,
-            status: 'processing', // Mark processing immediately for mock
-            shipping_address: shippingAddress,
-            stripe_session_id: 'mock_sess_' + Math.random().toString(36).substr(2, 9),
-          },
-          orderItems
-        );
-
-        // Trigger order confirmation email via API endpoint (async)
-        const orderForEmail = {
-          ...mockOrder,
-          items: cart.map(item => ({
-            id: 'mock_item_' + Math.random().toString(36).substr(2, 9),
-            order_id: mockOrder.id,
-            product_id: item.product.id,
-            quantity: item.quantity,
-            price: item.product.price,
-            size: item.size,
-            color: item.color,
-            product: item.product
-          }))
-        };
-        fetch('/api/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            order: orderForEmail,
-            customerEmail: shippingAddress.email || user.primaryEmailAddress?.emailAddress || '',
-          }),
-        }).catch(err => console.error('Failed to trigger confirmation email:', err));
-
-        // Clear local cart
-        clearCart();
-        
-        // Redirect to success
-        router.push(`/checkout/success?session_id=${mockOrder.stripe_session_id}&mock=true`);
-        return;
-      }
-
-      // Real Stripe Checkout Integration
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cart,
-          shippingAddress,
-          userId: user.id,
-        }),
-      });
-
-      const session = await response.json();
-      if (session.error) {
-        throw new Error(session.error);
-      }
-
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
-      if (stripe) {
-        const { error } = await (stripe as any).redirectToCheckout({
-          sessionId: session.id,
-        });
-        if (error) throw error;
-      }
-    } catch (err: any) {
-      console.error('Checkout error:', err);
-      alert(err.message || 'Payment system error. Please try again.');
-    } finally {
-      setIsCheckingOut(false);
+      router.push('/login?redirect=/checkout');
+    } else {
+      router.push('/checkout');
     }
   };
 
@@ -242,7 +126,7 @@ export default function CartPage() {
             ))}
           </div>
 
-          {/* Checkout and Form Column */}
+          {/* Checkout Column */}
           <div className="lg:col-span-5 glass p-6 rounded border border-border">
             <h2 className="text-lg font-bold uppercase tracking-widest text-white mb-6 border-b border-border/80 pb-4">
               Order Summary
@@ -264,150 +148,14 @@ export default function CartPage() {
               </div>
             </div>
 
-            {/* Address Checkout Form */}
-            <form onSubmit={handleCheckout} className="space-y-4">
-              <h3 className="text-xs font-mono uppercase tracking-widest text-zinc-400 mb-3 block">
-                Shipping Details
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Full Name</label>
-                  <input 
-                    type="text" 
-                    name="name" 
-                    required 
-                    value={shippingAddress.name}
-                    onChange={handleInputChange}
-                    placeholder="John Doe"
-                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Email</label>
-                  <input 
-                    type="email" 
-                    name="email" 
-                    required 
-                    value={shippingAddress.email}
-                    onChange={handleInputChange}
-                    placeholder="john@example.com"
-                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Address Line 1</label>
-                <input 
-                  type="text" 
-                  name="line1" 
-                  required 
-                  value={shippingAddress.line1}
-                  onChange={handleInputChange}
-                  placeholder="123 Street Name"
-                  className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Address Line 2 (Optional)</label>
-                <input 
-                  type="text" 
-                  name="line2" 
-                  value={shippingAddress.line2}
-                  onChange={handleInputChange}
-                  placeholder="Apt, Suite, Floor"
-                  className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">City</label>
-                  <input 
-                    type="text" 
-                    name="city" 
-                    required 
-                    value={shippingAddress.city}
-                    onChange={handleInputChange}
-                    placeholder="Los Angeles"
-                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">State / Region</label>
-                  <input 
-                    type="text" 
-                    name="state" 
-                    required 
-                    value={shippingAddress.state}
-                    onChange={handleInputChange}
-                    placeholder="CA"
-                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Postal Code</label>
-                  <input 
-                    type="text" 
-                    name="postal_code" 
-                    required 
-                    value={shippingAddress.postal_code}
-                    onChange={handleInputChange}
-                    placeholder="90001"
-                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white placeholder-border/50 rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Country</label>
-                  <select 
-                    name="country" 
-                    required 
-                    value={shippingAddress.country}
-                    onChange={handleInputChange}
-                    className="w-full bg-[#18181b]/50 border border-border text-sm text-white rounded px-3 py-2.5 focus:outline-none focus:border-white transition-colors"
-                  >
-                    <option value="US">United States</option>
-                    <option value="CA">Canada</option>
-                    <option value="GB">United Kingdom</option>
-                    <option value="DE">Germany</option>
-                    <option value="FR">France</option>
-                    <option value="JP">Japan</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Checkout Buttons */}
-              <button 
-                type="submit"
-                onClick={(e) => {
-                  if (!user) {
-                    e.preventDefault();
-                    alert('Please log in or register to complete your purchase.');
-                    router.push('/login?redirect=/cart');
-                  }
-                }}
-                disabled={isCheckingOut}
-                className="w-full inline-flex items-center justify-center gap-2 h-14 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors cursor-pointer mt-6 disabled:bg-zinc-800 disabled:text-zinc-500"
-              >
-                {isCheckingOut ? (
-                  <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 bg-black rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="h-1.5 w-1.5 bg-black rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="h-1.5 w-1.5 bg-black rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </span>
-                ) : (
-                  <>
-                    <CreditCard className="h-4.5 w-4.5" />
-                    Proceed to Payment
-                  </>
-                )}
-              </button>
-            </form>
+            {/* Proceed to Checkout Button */}
+            <button 
+              onClick={handleProceedToCheckout}
+              className="w-full inline-flex items-center justify-center gap-2 h-14 bg-white text-black font-extrabold text-xs uppercase tracking-widest rounded hover:bg-zinc-200 transition-colors cursor-pointer mt-6"
+            >
+              <CreditCard className="h-4.5 w-4.5" />
+              Proceed to Checkout
+            </button>
 
             {/* Badges footer */}
             <div className="mt-8 pt-6 border-t border-border flex flex-col gap-4 text-xs font-mono text-muted-foreground">
