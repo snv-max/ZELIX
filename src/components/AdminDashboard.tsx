@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useUser } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { fetchCategories, fetchProducts } from '@/lib/data';
 import { mockDb } from '@/lib/mockData';

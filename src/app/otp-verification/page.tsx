@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useSignUp } from '@clerk/nextjs';
+import { useSignUp } from '@/context/AuthContext';
 import { ShieldCheck, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useMockAuthHelper } from '@/context/AuthContext';
 

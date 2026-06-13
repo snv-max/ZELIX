@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useSignIn } from '@clerk/nextjs';
+import { useSignIn } from '@/context/AuthContext';
 import { Key, Mail, ShieldCheck, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function ForgotPasswordPage() {

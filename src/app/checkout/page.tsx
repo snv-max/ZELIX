@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { useUser } from '@clerk/nextjs';
+import { useUser } from '@/context/AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
 import { CreditCard, Lock, ShieldCheck, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { mockDb } from '@/lib/mockData';

@@ -1,7 +1,8 @@
 'use client';
+/* eslint-disable react-hooks/rules-of-hooks */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { ClerkProvider as ClerkOriginalProvider, useUser as useClerkUser, useClerk as useClerkOriginal, useAuth as useClerkAuth } from '@clerk/nextjs';
+import { ClerkProvider as ClerkOriginalProvider, useUser as useClerkUser, useClerk as useClerkOriginal, useAuth as useClerkAuth, useSignIn as useClerkSignIn, useSignUp as useClerkSignUp } from '@clerk/nextjs';
 
 export const isClerkConfigured = 
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && 
@@ -175,4 +176,32 @@ export function useAuth() {
 export function useMockAuthHelper() {
   const context = useContext(CustomAuthContext);
   return context || null;
+}
+
+export function useSignIn() {
+  if (isClerkConfigured) {
+    return useClerkSignIn() as any;
+  }
+  return {
+    isLoaded: true,
+    signIn: {
+      create: async () => {},
+      attemptFirstFactor: async () => ({ status: 'complete', createdSessionId: 'mock_session_id' }),
+    },
+    setActive: async () => {},
+  };
+}
+
+export function useSignUp() {
+  if (isClerkConfigured) {
+    return useClerkSignUp() as any;
+  }
+  return {
+    isLoaded: true,
+    signUp: {
+      prepareEmailAddressVerification: async () => {},
+      attemptEmailAddressVerification: async () => ({ status: 'complete', createdSessionId: 'mock_session_id' }),
+    },
+    setActive: async () => {},
+  };
 }

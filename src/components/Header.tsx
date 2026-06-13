@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { useUser, useClerk } from '@clerk/nextjs';
+import { useUser, useClerk } from '@/context/AuthContext';
 import { ShoppingBag, Heart, User as UserIcon, Search, X, Menu, Settings, LogOut } from 'lucide-react';
 
 export default function Header() {
